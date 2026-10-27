@@ -1,0 +1,195 @@
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from typing import List, Dict, Any
+
+from app.database import get_db
+from app.models.models import (
+    Institution, Program, Enrolment, Student,
+    ValidationIssue, DuplicateCase, AnomalyAlert, User
+)
+from app.schemas.schemas import AnomalyAlertResponse, AnomalyAlertResolve, IntakeAnalyticsResponse
+from app.security.security import get_current_user, require_roles
+from app.services.intake_service import IntakeService
+from app.services.audit_service import AuditService
+
+router = APIRouter(prefix="/analytics", tags=["Analytics & Surveillance"])
+
+@router.get("/overview")
+def get_national_overview(db: Session = Depends(get_db)):
+    """Computes real aggregate metrics from backend database for AICTE Dashboard"""
+    institutions = db.query(Institution).all()
+    programs = db.query(Program).all()
+    enrolments = db.query(Enrolment).filter(Enrolment.enrolment_status == "ACTIVE").all()
+    issues = db.query(ValidationIssue).filter(ValidationIssue.status == "OPEN").all()
+    duplicates = db.query(DuplicateCase).filter(DuplicateCase.review_status == "PENDING").all()
+    alerts = db.query(AnomalyAlert).filter(AnomalyAlert.status == "OPEN").all()
+
+    total_approved_regular_intake = sum(p.approved_regular_intake for p in programs)
+    total_tfw_cap = sum(p.tfw_quota or 0 for p in programs)
+    total_ews_cap = sum(p.ews_quota or 0 for p in programs)
+    total_nri_cap = sum(p.nri_quota or 0 for p in programs)
+    total_fn_oci_cap = sum(p.fn_oci_quota or 0 for p in programs)
+
+    total_supernumerary_cap = total_tfw_cap + total_ews_cap + total_nri_cap + total_fn_oci_cap
+    total_enrolled = len(enrolments)
+    supernumerary_enrolled = sum(1 for e in enrolments if e.supernumerary_classification != "NONE")
+    regular_enrolled = total_enrolled - supernumerary_enrolled
+
+    # State-wise distribution
+    state_metrics = {}
+    for inst in institutions:
+        st = inst.state
+        if st not in state_metrics:
+            state_metrics[st] = {
+                "state": st,
+                "institutions": 0,
+                "approved_intake": 0,
+                "enrolled": 0,
+                "anomalies": 0
+            }
+        state_metrics[st]["institutions"] += 1
+        inst_progs = [p for p in programs if p.institution_id == inst.id]
+        state_metrics[st]["approved_intake"] += sum(p.approved_regular_intake for p in inst_progs)
+
+    for enr in enrolments:
+        inst = next((i for i in institutions if i.id == enr.institution_id), None)
+        if inst and inst.state in state_metrics:
+            state_metrics[inst.state]["enrolled"] += 1
+
+    for issue in issues:
+        inst = next((i for i in institutions if i.id == issue.institution_id), None)
+        if inst and inst.state in state_metrics:
+            state_metrics[inst.state]["anomalies"] += 1
+
+    # Supernumerary Breakdown
+    quota_counts = {
+        "regular": regular_enrolled,
+        "tfw": sum(1 for e in enrolments if e.supernumerary_classification == "TFW"),
+        "ews": sum(1 for e in enrolments if e.supernumerary_classification == "EWS"),
+        "nri": sum(1 for e in enrolments if e.supernumerary_classification == "NRI"),
+        "fn_oci": sum(1 for e in enrolments if e.supernumerary_classification == "FN_OCI"),
+        "pmsss": sum(1 for e in enrolments if e.supernumerary_classification == "PMSSS")
+    }
+
+    return {
+        "total_institutions": len(institutions),
+        "total_approved_regular_intake": total_approved_regular_intake,
+        "total_supernumerary_capacity": total_supernumerary_cap,
+        "total_enrolled": total_enrolled,
+        "regular_enrolled": regular_enrolled,
+        "supernumerary_enrolled": supernumerary_enrolled,
+        "national_utilization_rate": round((regular_enrolled / max(total_approved_regular_intake, 1)) * 100, 2),
+        "open_validation_issues": len(issues),
+        "pending_duplicate_cases": len(duplicates),
+        "active_anomaly_alerts": len(alerts),
+        "quota_breakdown": quota_counts,
+        "state_breakdown": list(state_metrics.values())
+    }
+
+@router.get("/intake", response_model=List[IntakeAnalyticsResponse])
+def get_intake_analytics(institution_id: str = None, db: Session = Depends(get_db)):
+    programs_query = db.query(Program)
+    if institution_id:
+        programs_query = programs_query.filter(Program.institution_id == institution_id)
+    programs = programs_query.all()
+
+    results = []
+    for p in programs:
+        inst = db.query(Institution).filter(Institution.id == p.institution_id).first()
+        inst_name = inst.name if inst else p.institution_id
+        metrics = IntakeService.calculate_program_intake(db, p.id)
+        if metrics:
+            results.append(IntakeAnalyticsResponse(
+                institution_id=p.institution_id,
+                institution_name=inst_name,
+                program_code=p.program_code,
+                program_name=p.program_name,
+                approved_regular_intake=metrics["approved_regular_intake"],
+                admitted_regular=metrics["admitted_regular"],
+                regular_utilization_percent=metrics["regular_utilization_percent"],
+                tfw_cap=metrics["tfw_cap"],
+                tfw_admitted=metrics["tfw_admitted"],
+                ews_cap=metrics["ews_cap"],
+                ews_admitted=metrics["ews_admitted"],
+                nri_cap=metrics["nri_cap"],
+                nri_admitted=metrics["nri_admitted"],
+                fn_oci_cap=metrics["fn_oci_cap"],
+                fn_oci_admitted=metrics["fn_oci_admitted"],
+                pmsss_cap=metrics["pmsss_cap"],
+                pmsss_admitted=metrics["pmsss_admitted"],
+                total_approved_capacity=metrics["total_approved_capacity"],
+                total_admitted=metrics["total_admitted"],
+                status=metrics["status"]
+            ))
+    return results
+
+@router.get("/institution/{id}")
+def get_institution_overview(id: str, db: Session = Depends(get_db)):
+    inst = db.query(Institution).filter(Institution.id == id).first()
+    if not inst:
+        raise HTTPException(status_code=404, detail="Institution not found")
+
+    programs = db.query(Program).filter(Program.institution_id == id).all()
+    enrolments = db.query(Enrolment).filter(
+        Enrolment.institution_id == id,
+        Enrolment.enrolment_status == "ACTIVE"
+    ).all()
+    issues = db.query(ValidationIssue).filter(
+        ValidationIssue.institution_id == id,
+        ValidationIssue.status == "OPEN"
+    ).all()
+
+    total_approved = sum(p.approved_regular_intake for p in programs)
+    total_enrolled = len(enrolments)
+    regular_enrolled = sum(1 for e in enrolments if e.supernumerary_classification == "NONE")
+    supernumerary_enrolled = total_enrolled - regular_enrolled
+
+    utilization = round((regular_enrolled / max(total_approved, 1)) * 100, 2)
+
+    return {
+        "institution_id": inst.id,
+        "institution_name": inst.name,
+        "official_code": inst.official_code,
+        "state": inst.state,
+        "approval_status": inst.approval_status,
+        "nirf_rank": inst.nirf_rank,
+        "total_programs": len(programs),
+        "total_approved_regular_intake": total_approved,
+        "total_enrolled": total_enrolled,
+        "regular_enrolled": regular_enrolled,
+        "supernumerary_enrolled": supernumerary_enrolled,
+        "regular_utilization_percent": utilization,
+        "open_validation_issues": len(issues),
+        "program_breakdown": [IntakeService.calculate_program_intake(db, p.id) for p in programs]
+    }
+
+@router.get("/alerts", response_model=List[AnomalyAlertResponse])
+def get_anomaly_alerts(db: Session = Depends(get_db)):
+    return db.query(AnomalyAlert).order_by(AnomalyAlert.created_at.desc()).all()
+
+@router.post("/alerts/{id}/review", response_model=AnomalyAlertResponse)
+def review_anomaly_alert(
+    id: str,
+    data: AnomalyAlertResolve,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["AICTE_ADMIN"]))
+):
+    alert = db.query(AnomalyAlert).filter(AnomalyAlert.id == id).first()
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+
+    alert.status = "RESOLVED"
+    alert.resolved_by = current_user.username
+    alert.action_notes = data.action_notes
+    db.commit()
+    db.refresh(alert)
+
+    AuditService.record_event(
+        db,
+        actor_username=current_user.username,
+        actor_role=current_user.role,
+        action="ANOMALY_ALERT_RESOLVED",
+        description=f"Regulatory review closed for {alert.alert_id}: {data.action_notes}"
+    )
+
+    return alert
