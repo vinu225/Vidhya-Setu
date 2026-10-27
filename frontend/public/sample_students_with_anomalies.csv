@@ -1,0 +1,6 @@
+apaar_id,student_id,name,program_code,seat_category,supernumerary_classification,academic_year,admission_date
+984210573915,24/CSE/901,Karan Johar,CSE-BTECH,REGULAR,NONE,2024-25,2024-08-01
+111222333444,24/CSE/902,Bad Checksum Student,CSE-BTECH,REGULAR,NONE,2024-25,2024-08-01
+,24/CSE/903,Missing APAAR Student,CSE-BTECH,REGULAR,NONE,2024-25,2024-08-01
+883920194835,24/CSE/904,Sameer Verma Duplicate,CSE-BTECH,REGULAR,NONE,2024-25,2024-08-01
+984210573915,24/CSE/905,Repeated Identifier In Batch,CSE-BTECH,REGULAR,NONE,2024-25,2024-08-01
