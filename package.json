@@ -1,0 +1,22 @@
+{
+  "name": "eduverify-ai",
+  "version": "1.0.0",
+  "description": "AICTE APAAR ID-Based Student Data Management & Verification Platform (SIH 26263)",
+  "scripts": {
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": ".\\backend\\venv\\Scripts\\uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload",
+    "seed": ".\\backend\\venv\\Scripts\\python scripts/seed_data.py",
+    "test": ".\\backend\\venv\\Scripts\\pytest backend/tests"
+  },
+  "keywords": [
+    "aicte",
+    "apaar",
+    "sih",
+    "verification",
+    "ed25519",
+    "verhoeff",
+    "dpdp-act"
+  ],
+  "author": "EduVerify AI Team",
+  "license": "MIT"
+}
