@@ -6,12 +6,20 @@ from sqlalchemy.orm import Session
 from app.models.models import IssuedCredential, Student, Enrolment, Institution, Program
 from app.security.security import sign_credential_payload, verify_credential_signature, mask_apaar_id
 
+def format_iso_z(dt: Optional[datetime]) -> str:
+    if not dt:
+        return ""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
 class CredentialService:
     @staticmethod
     def issue_credential(
         db: Session,
         student_id: str,
-        enrolment_id: str
+        enrolment_id: str,
+        custom_credential_id: Optional[str] = None
     ) -> IssuedCredential:
         student = db.query(Student).filter(Student.id == student_id).first()
         enrolment = db.query(Enrolment).filter(Enrolment.id == enrolment_id).first()
@@ -26,9 +34,9 @@ class CredentialService:
         if existing and existing.status == "VALID":
             return existing
 
-        credential_id = f"AICTE-VC-{uuid.uuid4().hex[:12].upper()}"
-        issued_at = datetime.now(timezone.utc)
-        expires_at = issued_at + timedelta(days=365 * 4)  # 4 years validity
+        credential_id = custom_credential_id or f"AICTE-VC-{uuid.uuid4().hex[:12].upper()}"
+        issued_at = datetime.now(timezone.utc).replace(microsecond=0)
+        expires_at = (issued_at + timedelta(days=365 * 4)).replace(microsecond=0)  # 4 years validity
 
         # Canonical claims payload to sign
         claims = {
@@ -38,8 +46,8 @@ class CredentialService:
             "institution_code": institution.official_code,
             "program_code": program.program_code,
             "academic_period": f"{enrolment.academic_year}-2028",
-            "issued_at": issued_at.isoformat(),
-            "expires_at": expires_at.isoformat()
+            "issued_at": format_iso_z(issued_at),
+            "expires_at": format_iso_z(expires_at)
         }
         canonical_str = json.dumps(claims, sort_keys=True)
         digital_signature = sign_credential_payload(canonical_str)
@@ -62,6 +70,7 @@ class CredentialService:
         db.commit()
         db.refresh(cred)
         return cred
+
 
     @staticmethod
     def verify_credential(
@@ -131,11 +140,18 @@ class CredentialService:
             "institution_code": institution.official_code if institution else "",
             "program_code": program.program_code if program else "",
             "academic_period": cred.academic_period,
-            "issued_at": cred.issued_at.isoformat(),
-            "expires_at": cred.expires_at.isoformat() if cred.expires_at else ""
+            "issued_at": format_iso_z(cred.issued_at),
+            "expires_at": format_iso_z(cred.expires_at)
         }
         canonical_str = json.dumps(claims, sort_keys=True)
         is_signature_valid = verify_credential_signature(canonical_str, cred.digital_signature)
+
+        # Legacy fallback if signed with raw isoformat
+        if not is_signature_valid and cred.issued_at:
+            legacy_claims = dict(claims)
+            legacy_claims["issued_at"] = cred.issued_at.isoformat()
+            legacy_claims["expires_at"] = cred.expires_at.isoformat() if cred.expires_at else ""
+            is_signature_valid = verify_credential_signature(json.dumps(legacy_claims, sort_keys=True), cred.digital_signature)
 
         if not is_signature_valid:
             return {

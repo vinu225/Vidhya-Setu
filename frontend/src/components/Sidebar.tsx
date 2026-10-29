@@ -29,8 +29,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab, use
 
   const navItems: NavItemDef[] = [
     { id: "aicte-hq", label: "AICTE Regulatory HQ", transKey: "nav_aicte_hq", icon: Building2, show: isAicteAdmin },
-    { id: "institution-portal", label: "Institution Portal", transKey: "nav_institution_portal", icon: GraduationCap, show: true },
-    { id: "student-registry", label: "Student Registry", transKey: "nav_student_registry", icon: Users, show: true },
+    { id: "institution-portal", label: "Institution Portal", transKey: "nav_institution", icon: GraduationCap, show: true },
+    { id: "student-registry", label: "Student Registry", transKey: "nav_students", icon: Users, show: true },
     { id: "bulk-upload", label: "Bulk Upload Hub", transKey: "nav_bulk_upload", icon: UploadCloud, show: isInstitution || isAicteAdmin },
     { id: "anomaly-center", label: "Anomaly & Fraud Center", transKey: "nav_anomaly_center", icon: AlertTriangle, show: true },
     { id: "intake-monitor", label: "Intake Compliance", transKey: "nav_intake_monitor", icon: BarChart3, show: true },

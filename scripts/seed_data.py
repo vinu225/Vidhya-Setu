@@ -329,8 +329,7 @@ def seed_database():
     db.add(star_enr)
     db.flush()
 
-    star_cred = CredentialService.issue_credential(db, star_student.id, star_enr.id)
-    star_cred.credential_id = "AICTE-VC-DEMO-001"
+    star_cred = CredentialService.issue_credential(db, star_student.id, star_enr.id, custom_credential_id="AICTE-VC-DEMO-001")
     db.commit()
 
     # 5 Cross-Institution Collision Scenarios
