@@ -21,6 +21,13 @@ export const IntakeMonitoring: React.FC<IntakeMonitoringProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Sync selectedInst when user or institution_id becomes available
+  useEffect(() => {
+    if (user?.institution_id) {
+      setSelectedInst(user.institution_id);
+    }
+  }, [user?.institution_id]);
+
   useEffect(() => {
     const fetchInstitutions = async () => {
       try {
@@ -37,7 +44,8 @@ export const IntakeMonitoring: React.FC<IntakeMonitoringProps> = ({
     try {
       setLoading(true);
       setError(null);
-      const data = await api.getIntakeAnalytics(selectedInst || undefined);
+      const targetInst = user?.institution_id || selectedInst;
+      const data = await api.getIntakeAnalytics(targetInst || undefined);
       setIntakeData(data);
     } catch (err: any) {
       console.error('Failed to load intake analytics', err);
@@ -49,7 +57,7 @@ export const IntakeMonitoring: React.FC<IntakeMonitoringProps> = ({
 
   useEffect(() => {
     loadIntake();
-  }, [selectedInst]);
+  }, [selectedInst, user?.institution_id]);
 
   // Aggregate KPIs
   const totalApproved = intakeData.reduce((sum, item) => sum + item.approved_regular_intake, 0);
@@ -110,8 +118,14 @@ export const IntakeMonitoring: React.FC<IntakeMonitoringProps> = ({
           value={selectedInst}
           onChange={e => setSelectedInst(e.target.value)}
           style={{ maxWidth: 260 }}
+          disabled={user?.role === 'INSTITUTION_ADMIN' || user?.role === 'DATA_ENTRY_OFFICER'}
         >
-          <option value="">All institutions</option>
+          {(!user?.institution_id || user.role === 'AICTE_ADMIN' || user.role === 'AUDITOR') && (
+            <option value="">All institutions</option>
+          )}
+          {user?.institution_id && !institutions.some(i => i.id === user.institution_id) && (
+            <option value={user.institution_id}>Delhi Technological University (DTU)</option>
+          )}
           {institutions.map(inst => (
             <option key={inst.id} value={inst.id}>
               {inst.name}

@@ -870,6 +870,67 @@ export const api = {
     const updated = [newComplaint, ...current];
     localStorage.setItem("student_grievances_data", JSON.stringify(updated));
     return newComplaint;
+  },
+
+  forwardComplaintToInstitution(complaintId: string, institutionName: string, remarks: string, forwardedBy: string = "Corporate Verifier") {
+    const list = this.getStudentComplaints();
+    const now = new Date();
+    const timeStr = `${now.getDate().toString().padStart(2, '0')}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')} IST`;
+
+    const updated = list.map((c: any) => {
+      if (c.id === complaintId) {
+        const newTimeline = [
+          ...(c.timeline || []),
+          {
+            step: `Forwarded to ${institutionName}`,
+            time: timeStr,
+            note: `${remarks || "Forwarded for institutional record review and credential confirmation."} (Action by: ${forwardedBy})`
+          }
+        ];
+        return {
+          ...c,
+          status: "FORWARDED_TO_INSTITUTE",
+          status_tone: "sky",
+          target_authority: `${institutionName} (College Registrar Desk)`,
+          last_updated: timeStr,
+          college_remarks: remarks || `Dispatched to ${institutionName} for college-level review and records re-verification.`,
+          timeline: newTimeline
+        };
+      }
+      return c;
+    });
+    localStorage.setItem("student_grievances_data", JSON.stringify(updated));
+    return updated.find((c: any) => c.id === complaintId);
+  },
+
+  resolveStudentComplaint(complaintId: string, resolutionRemarks: string, resolvedBy: string = "Authorized Verifier") {
+    const list = this.getStudentComplaints();
+    const now = new Date();
+    const timeStr = `${now.getDate().toString().padStart(2, '0')}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')} IST`;
+
+    const updated = list.map((c: any) => {
+      if (c.id === complaintId) {
+        const newTimeline = [
+          ...(c.timeline || []),
+          {
+            step: "Resolved & Sealed",
+            time: timeStr,
+            note: `${resolutionRemarks || "Verification dispute cleared. Official Ed25519 digital seal verified."} (Sealed by: ${resolvedBy})`
+          }
+        ];
+        return {
+          ...c,
+          status: "RESOLVED",
+          status_tone: "green",
+          last_updated: timeStr,
+          college_remarks: resolutionRemarks,
+          timeline: newTimeline
+        };
+      }
+      return c;
+    });
+    localStorage.setItem("student_grievances_data", JSON.stringify(updated));
+    return updated.find((c: any) => c.id === complaintId);
   }
 };
 

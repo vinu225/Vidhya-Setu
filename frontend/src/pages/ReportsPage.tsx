@@ -16,12 +16,17 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
   onSwitchPersona
 }) => {
   const [institutions, setInstitutions] = useState<Institution[]>([]);
-  const [overview, setOverview] = useState<NationalOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedType, setSelectedType] = useState<number>(2); // 'Institution compliance' default
-  const [selectedInst, setSelectedInst] = useState<string>('');
+  const [selectedInst, setSelectedInst] = useState<string>(user?.institution_id || '');
   const [exporting, setExporting] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (user?.institution_id) {
+      setSelectedInst(user.institution_id);
+    }
+  }, [user?.institution_id]);
 
   const reportTypes = [
     { title: 'Student records', sub: 'Master enrolment roster & APAAR IDs' },
@@ -35,12 +40,8 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
       try {
         setLoading(true);
         setError(null);
-        const [insts, ov] = await Promise.all([
-          api.getInstitutions(),
-          api.getNationalOverview()
-        ]);
+        const insts = await api.getInstitutions();
         setInstitutions(insts);
-        setOverview(ov);
       } catch (err: any) {
         console.error('Failed to load reports metadata', err);
         setError(err.message || 'Error loading report metrics.');
@@ -70,8 +71,11 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
     window.print();
   };
 
-  const filteredInstitutions = selectedInst
-    ? institutions.filter(i => i.id === selectedInst)
+  const isInstitutionAdmin = user?.role === 'INSTITUTION_ADMIN' || user?.role === 'DATA_ENTRY_OFFICER';
+  const effectiveInstId = isInstitutionAdmin ? (user?.institution_id || selectedInst) : selectedInst;
+
+  const filteredInstitutions = effectiveInstId
+    ? institutions.filter(i => i.id === effectiveInstId)
     : institutions;
 
   // Table rows matching design
@@ -158,11 +162,15 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
       <Card style={{ marginTop: 16 }}>
         <div className="row" style={{ marginBottom: 16, gap: 8 }}>
           <select
-            value={selectedInst}
+            value={effectiveInstId}
             onChange={e => setSelectedInst(e.target.value)}
             style={{ maxWidth: 260 }}
+            disabled={isInstitutionAdmin}
           >
-            <option value="">All institutions</option>
+            {!isInstitutionAdmin && <option value="">All institutions</option>}
+            {user?.institution_id && !institutions.some(i => i.id === user.institution_id) && (
+              <option value={user.institution_id}>Delhi Technological University (DTU)</option>
+            )}
             {institutions.map(inst => (
               <option key={inst.id} value={inst.id}>
                 {inst.name}

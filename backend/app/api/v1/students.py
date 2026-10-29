@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from typing import List, Optional, Dict, Any
 
 from app.database import get_db
@@ -48,16 +48,28 @@ def get_students(
     total_count = query.distinct().count()
     students = query.distinct().offset(skip).limit(limit).all()
 
+    student_ids = [s.id for s in students]
+    latest_enrolment_by_student = {}
+    if student_ids:
+        enrolments = (
+            db.query(Enrolment)
+            .options(selectinload(Enrolment.institution), selectinload(Enrolment.program))
+            .filter(Enrolment.student_id.in_(student_ids))
+            .order_by(Enrolment.created_at.desc())
+            .all()
+        )
+        for enr in enrolments:
+            if enr.student_id not in latest_enrolment_by_student:
+                latest_enrolment_by_student[enr.student_id] = enr
+
     results = []
     for s in students:
-        current_enr = db.query(Enrolment).filter(
-            Enrolment.student_id == s.id
-        ).order_by(Enrolment.created_at.desc()).first()
+        current_enr = latest_enrolment_by_student.get(s.id)
 
         enr_resp = None
         if current_enr:
-            inst = db.query(Institution).filter(Institution.id == current_enr.institution_id).first()
-            prog = db.query(Program).filter(Program.id == current_enr.program_id).first()
+            inst_name = current_enr.institution.name if current_enr.institution else current_enr.institution_id
+            prog_name = current_enr.program.program_name if current_enr.program else current_enr.program_id
             enr_resp = EnrolmentResponse(
                 id=current_enr.id,
                 student_id=current_enr.student_id,
@@ -73,8 +85,8 @@ def get_students(
                 supernumerary_classification=current_enr.supernumerary_classification,
                 tamper_hash=current_enr.tamper_hash,
                 created_at=current_enr.created_at,
-                institution_name=inst.name if inst else current_enr.institution_id,
-                program_name=prog.program_name if prog else current_enr.program_id
+                institution_name=inst_name,
+                program_name=prog_name
             )
 
         results.append(StudentResponse(

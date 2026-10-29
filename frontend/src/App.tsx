@@ -16,16 +16,17 @@ import { IntegrationsHealth } from './pages/IntegrationsHealth';
 import { StudentPortal } from './pages/StudentPortal';
 import { StudentSchemes } from './pages/StudentSchemes';
 import { StudentComplaints } from './pages/StudentComplaints';
+import { ComplaintReviewPortal } from './pages/ComplaintReviewPortal';
 import { AuditorCopilot } from './components/AuditorCopilot';
 import './apaar.css';
 
 // Strict tab permission whitelist per stakeholder role
 const ROLE_ALLOWED_TABS: Record<string, string[]> = {
-  AICTE_ADMIN: ['dashboard', 'intake', 'anomalies', 'graph', 'reports', 'audit', 'health', 'verify'],
-  INSTITUTION_ADMIN: ['institution', 'registry', 'upload', 'intake', 'reports', 'verify'],
+  AICTE_ADMIN: ['dashboard', 'intake', 'anomalies', 'graph', 'reports', 'audit', 'health', 'verify', 'complaints-review'],
+  INSTITUTION_ADMIN: ['institution', 'registry', 'upload', 'intake', 'reports', 'verify', 'complaints-review'],
   DATA_ENTRY_OFFICER: ['institution', 'registry', 'upload', 'verify'],
-  EXTERNAL_VERIFIER: ['verify', 'health'],
-  AUDITOR: ['dashboard', 'intake', 'anomalies', 'reports', 'audit', 'verify'],
+  EXTERNAL_VERIFIER: ['verify', 'complaints-review'],
+  AUDITOR: ['dashboard', 'intake', 'anomalies', 'reports', 'audit', 'verify', 'complaints-review'],
   STUDENT: ['student-portal', 'student-schemes', 'student-complaints', 'verify']
 };
 
@@ -207,6 +208,14 @@ export const App: React.FC = () => {
       )}
       {activeTabNorm === 'student-complaints' && (
         <StudentComplaints
+          user={user}
+          onNavigateTab={handleNavigate}
+          onLogout={handleLogout}
+          onSwitchPersona={handleSwitchPersona}
+        />
+      )}
+      {activeTabNorm === 'complaints-review' && (
+        <ComplaintReviewPortal
           user={user}
           onNavigateTab={handleNavigate}
           onLogout={handleLogout}

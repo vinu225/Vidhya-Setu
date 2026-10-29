@@ -49,33 +49,35 @@ export const StudentRegistry: React.FC<StudentRegistryProps> = ({
   const [formError, setFormError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
+  // Sync selectedInst when user becomes available
+  useEffect(() => {
+    if (user?.institution_id) {
+      setSelectedInst(user.institution_id);
+      setNewInst(user.institution_id);
+    }
+  }, [user?.institution_id]);
+
   // Initial load: institutions & programs
   useEffect(() => {
     const loadMetadata = async () => {
       try {
-        const [insts, progs] = await Promise.all([
-          api.getInstitutions(),
-          api.getPrograms(user?.institution_id || undefined)
-        ]);
-        setInstitutions(insts);
-        setPrograms(progs);
-        if (user?.institution_id) {
-          setSelectedInst(user.institution_id);
-          setNewInst(user.institution_id);
-        }
+        const targetInst = user?.institution_id || undefined;
+        api.getPrograms(targetInst).then(setPrograms).catch(console.error);
+        api.getInstitutions().then(setInstitutions).catch(console.error);
       } catch (err: any) {
         console.error('Failed to load institutions metadata', err);
       }
     };
     loadMetadata();
-  }, [user]);
+  }, [user?.institution_id]);
 
   const loadStudents = async () => {
     try {
       setLoading(true);
       setError(null);
+      const targetInst = user?.institution_id || selectedInst;
       const res = await api.getStudents({
-        institution_id: selectedInst || undefined,
+        institution_id: targetInst || undefined,
         program_id: selectedProg || undefined,
         status: selectedStatus === 'ALL' ? undefined : selectedStatus,
         search: searchTerm.trim() || undefined,
@@ -94,7 +96,7 @@ export const StudentRegistry: React.FC<StudentRegistryProps> = ({
 
   useEffect(() => {
     loadStudents();
-  }, [selectedInst, selectedProg, selectedStatus, page]);
+  }, [selectedInst, user?.institution_id, selectedProg, selectedStatus, page]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();

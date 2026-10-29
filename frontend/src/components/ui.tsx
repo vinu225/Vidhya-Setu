@@ -75,6 +75,7 @@ export const ROLE_CONFIGS: Record<string, RolePortalConfig> = {
         group: 'Compliance & Verification',
         items: [
           { id: 'reports', label: 'Enrolment Reports' },
+          { id: 'complaints-review', label: 'Student Grievance Inbox' },
           { id: 'verify', label: 'Credential Verifier' }
         ]
       }
@@ -114,7 +115,7 @@ export const ROLE_CONFIGS: Record<string, RolePortalConfig> = {
         group: 'Verification Services',
         items: [
           { id: 'verify', label: 'Verify Student Credential' },
-          { id: 'health', label: 'Verification Node Health' }
+          { id: 'complaints-review', label: 'Review Student Complaints' }
         ]
       }
     ]
@@ -210,7 +211,8 @@ export const denormalizeTabId = (tab: string): string => {
     'health': 'system-health',
     'student-portal': 'student-portal',
     'student-schemes': 'student-schemes',
-    'student-complaints': 'student-complaints'
+    'student-complaints': 'student-complaints',
+    'complaints-review': 'complaints-review'
   };
   return map[tab] || tab;
 };
@@ -229,6 +231,10 @@ export const getPageHeader = (active: string, role?: string) => {
     'student-complaints': {
       title: 'Student Grievance & Inquiries Portal',
       eyebrow: 'Time-Bound Institutional Grievance Redressal'
+    },
+    'complaints-review': {
+      title: 'Student Complaints & Dispute Review',
+      eyebrow: 'Dispute Redressal & Institutional Dispatch'
     },
     'dashboard': {
       title: 'National Academic Repository & Oversight',

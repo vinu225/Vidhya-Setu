@@ -172,35 +172,75 @@ def get_intake_analytics(institution_id: str = None, db: Session = Depends(get_d
     if institution_id:
         programs_query = programs_query.filter(Program.institution_id == institution_id)
     programs = programs_query.all()
+    if not programs:
+        return []
+
+    inst_ids = list({p.institution_id for p in programs})
+    institutions = db.query(Institution).filter(Institution.id.in_(inst_ids)).all()
+    inst_names = {i.id: i.name for i in institutions}
+
+    program_ids = [p.id for p in programs]
+    enrolments = db.query(Enrolment).filter(
+        Enrolment.program_id.in_(program_ids),
+        Enrolment.enrolment_status == "ACTIVE"
+    ).all()
+
+    enrolments_by_prog = {}
+    for e in enrolments:
+        enrolments_by_prog.setdefault(e.program_id, []).append(e)
 
     results = []
     for p in programs:
-        inst = db.query(Institution).filter(Institution.id == p.institution_id).first()
-        inst_name = inst.name if inst else p.institution_id
-        metrics = IntakeService.calculate_program_intake(db, p.id)
-        if metrics:
-            results.append(IntakeAnalyticsResponse(
-                institution_id=p.institution_id,
-                institution_name=inst_name,
-                program_code=p.program_code,
-                program_name=p.program_name,
-                approved_regular_intake=metrics["approved_regular_intake"],
-                admitted_regular=metrics["admitted_regular"],
-                regular_utilization_percent=metrics["regular_utilization_percent"],
-                tfw_cap=metrics["tfw_cap"],
-                tfw_admitted=metrics["tfw_admitted"],
-                ews_cap=metrics["ews_cap"],
-                ews_admitted=metrics["ews_admitted"],
-                nri_cap=metrics["nri_cap"],
-                nri_admitted=metrics["nri_admitted"],
-                fn_oci_cap=metrics["fn_oci_cap"],
-                fn_oci_admitted=metrics["fn_oci_admitted"],
-                pmsss_cap=metrics["pmsss_cap"],
-                pmsss_admitted=metrics["pmsss_admitted"],
-                total_approved_capacity=metrics["total_approved_capacity"],
-                total_admitted=metrics["total_admitted"],
-                status=metrics["status"]
-            ))
+        p_enrolments = enrolments_by_prog.get(p.id, [])
+        regular_admitted = sum(1 for e in p_enrolments if e.seat_category == "REGULAR" or e.supernumerary_classification == "NONE")
+        tfw_admitted = sum(1 for e in p_enrolments if e.supernumerary_classification == "TFW")
+        ews_admitted = sum(1 for e in p_enrolments if e.supernumerary_classification == "EWS")
+        nri_admitted = sum(1 for e in p_enrolments if e.supernumerary_classification == "NRI")
+        fn_oci_admitted = sum(1 for e in p_enrolments if e.supernumerary_classification == "FN_OCI")
+        pmsss_admitted = sum(1 for e in p_enrolments if e.supernumerary_classification == "PMSSS")
+
+        approved_intake = max(p.approved_regular_intake, 1)
+        utilization = round((regular_admitted / approved_intake) * 100, 2)
+
+        total_capacity = (
+            p.approved_regular_intake +
+            (p.tfw_quota or 0) +
+            (p.ews_quota or 0) +
+            (p.nri_quota or 0) +
+            (p.fn_oci_quota or 0) +
+            (p.pmsss_quota or 0)
+        )
+        total_admitted = len(p_enrolments)
+
+        status = "NORMAL"
+        if regular_admitted > p.approved_regular_intake:
+            status = "OVER_INTAKE_VIOLATION"
+        elif utilization >= 95.0:
+            status = "WARNING_HIGH_UTILIZATION"
+
+        inst_name = inst_names.get(p.institution_id, p.institution_id)
+        results.append(IntakeAnalyticsResponse(
+            institution_id=p.institution_id,
+            institution_name=inst_name,
+            program_code=p.program_code,
+            program_name=p.program_name,
+            approved_regular_intake=p.approved_regular_intake,
+            admitted_regular=regular_admitted,
+            regular_utilization_percent=utilization,
+            tfw_cap=p.tfw_quota or 0,
+            tfw_admitted=tfw_admitted,
+            ews_cap=p.ews_quota or 0,
+            ews_admitted=ews_admitted,
+            nri_cap=p.nri_quota or 0,
+            nri_admitted=nri_admitted,
+            fn_oci_cap=p.fn_oci_quota or 0,
+            fn_oci_admitted=fn_oci_admitted,
+            pmsss_cap=p.pmsss_quota or 0,
+            pmsss_admitted=pmsss_admitted,
+            total_approved_capacity=total_capacity,
+            total_admitted=total_admitted,
+            status=status
+        ))
     return results
 
 @router.get("/institution/{id}")
