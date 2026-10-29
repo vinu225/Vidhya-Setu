@@ -34,24 +34,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab, use
   return (
     <aside className="w-64 bg-navy-900 text-slate-200 flex flex-col border-r border-slate-800 select-none">
       {/* Brand Header */}
-      <div className="p-5 border-b border-slate-800 flex items-center space-x-3 bg-navy-900/50">
-        <div className="w-10 h-10 rounded-lg bg-aicte-blue border border-cyan-400/30 flex items-center justify-center shadow-lg shadow-cyan-900/20">
-          <ShieldCheck className="w-6 h-6 text-cyan-400" />
+      <div className="p-4 border-b border-slate-800 flex items-center space-x-3 bg-navy-900">
+        <div className="w-10 h-10 rounded-xl bg-blue-700 border border-blue-400/40 flex items-center justify-center shadow-md">
+          <ShieldCheck className="w-6 h-6 text-white" />
         </div>
         <div>
-          <div className="font-bold text-white text-base tracking-wide flex items-center gap-1.5">
-            EduVerify AI
-            <span className="text-[10px] font-semibold uppercase bg-cyan-950 text-cyan-300 px-1.5 py-0.5 rounded border border-cyan-700/50">
-              SIH 26263
+          <div className="font-extrabold text-white text-base tracking-tight flex items-center gap-1.5">
+            APAAR-Verify
+            <span className="text-[10px] font-bold uppercase bg-blue-950 text-blue-300 px-1.5 py-0.5 rounded border border-blue-700/60">
+              HQ
             </span>
           </div>
-          <div className="text-[11px] text-slate-400">AICTE APAAR Gateway</div>
+          <div className="text-[11px] text-slate-300 font-medium">AICTE Regulatory Surveillance</div>
         </div>
       </div>
 
       {/* Navigation Items */}
-      <nav className="flex-1 overflow-y-auto p-3 space-y-1">
-        <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+      <nav className="flex-1 overflow-y-auto p-3 space-y-1.5" aria-label="Main Navigation">
+        <div className="px-3 py-1.5 text-[10px] font-bold text-slate-300 uppercase tracking-wider">
           Surveillance & Operations
         </div>
         {navItems.filter(item => item.show).map(item => {
@@ -61,13 +61,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab, use
             <button
               key={item.id}
               onClick={() => setCurrentTab(item.id)}
-              className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-xs font-medium transition-all ${
+              aria-current={isActive ? "page" : undefined}
+              className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs transition-all focus:outline-none focus:ring-2 focus:ring-blue-400 ${
                 isActive
-                  ? "bg-blue-600 text-white shadow-md shadow-blue-900/30 font-semibold"
-                  : "text-slate-300 hover:bg-slate-800/70 hover:text-white"
+                  ? "bg-blue-600 text-white shadow-md shadow-blue-900/40 font-bold"
+                  : "text-slate-200 hover:bg-slate-800 hover:text-white font-medium"
               }`}
             >
-              <Icon className={`w-4 h-4 ${isActive ? "text-white" : "text-slate-400"}`} />
+              <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? "text-white" : "text-slate-300"}`} />
               <span className="truncate">{item.label}</span>
             </button>
           );

@@ -29,11 +29,27 @@ share/python-wheels/
 MANIFEST
 
 # Virtual Environments
+venv2*/
+venv2/
 venv/
+venv*/
 env/
+env*/
 ENV/
 backend/venv/
+backend/venv*/
 .venv/
+.venv*/
+
+# Presentations, Slides & Design Assets
+ppt/
+*.ppt
+*.pptx
+*.key
+~$*.pptx
+~$*.docx
+~$*.xlsx
+*.pdf
 
 # Testing & Coverage
 .pytest_cache/

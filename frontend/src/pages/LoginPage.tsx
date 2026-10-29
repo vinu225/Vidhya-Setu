@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { api } from '../services/api';
 import { ShieldCheck, Lock, User, AlertCircle, ArrowRight } from 'lucide-react';
+import { ClerkLogin } from '../components/ClerkLogin';
 
 interface LoginPageProps {
   onLoginSuccess: (userInfo: any) => void;
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
+  const hasClerk = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
+  const [authMethod, setAuthMethod] = useState<"clerk" | "demo">("clerk");
   const [username, setUsername] = useState("aicte_admin");
   const [password, setPassword] = useState("Admin@123");
   const [loading, setLoading] = useState(false);
@@ -58,6 +61,37 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             <span className="text-[10px] text-emerald-400 font-medium">● System Operational</span>
           </div>
 
+          {/* Mode Switcher */}
+          {hasClerk && (
+            <div className="grid grid-cols-2 p-1 bg-slate-900 rounded-xl border border-slate-700 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setAuthMethod("clerk")}
+                className={`py-1.5 rounded-lg transition-all ${
+                  authMethod === "clerk"
+                    ? "bg-blue-600 text-white shadow"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                Clerk SSO / OAuth
+              </button>
+              <button
+                type="button"
+                onClick={() => setAuthMethod("demo")}
+                className={`py-1.5 rounded-lg transition-all ${
+                  authMethod === "demo"
+                    ? "bg-blue-600 text-white shadow"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                Demo Accounts
+              </button>
+            </div>
+          )}
+
+          {hasClerk && authMethod === "clerk" ? (
+            <ClerkLogin onLoginSuccess={onLoginSuccess} />
+          ) : (
           <form onSubmit={handleLogin} className="space-y-4">
             {errorMsg && (
               <div className="p-3 bg-rose-950/60 border border-rose-800 text-rose-300 text-xs rounded-xl flex items-center gap-2">
@@ -109,6 +143,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
+          )}
 
           {/* Quick Demo Persona Shortcuts */}
           <div className="pt-3 border-t border-slate-700/80 space-y-2">

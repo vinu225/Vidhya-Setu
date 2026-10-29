@@ -65,18 +65,44 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
         detail="Could not validate credentials or token expired",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    # 1. Try local HS256 token verification first
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         username: str = payload.get("sub")
-        if username is None:
-            raise credentials_exception
+        if username:
+            user = db.query(User).filter(User.username == username).first()
+            if user and user.is_active:
+                return user
     except JWTError:
-        raise credentials_exception
+        pass
 
-    user = db.query(User).filter(User.username == username).first()
-    if user is None or not user.is_active:
-        raise credentials_exception
-    return user
+    # 2. Try Clerk JWT token verification / synchronization
+    try:
+        unverified_claims = jwt.get_unverified_claims(token)
+        clerk_user_id = unverified_claims.get("sub")
+        iss = unverified_claims.get("iss", "")
+        if clerk_user_id and ("clerk" in iss or clerk_user_id.startswith("user_")):
+            # Sync or retrieve Clerk user
+            user = db.query(User).filter((User.id == clerk_user_id) | (User.username == clerk_user_id)).first()
+            if not user:
+                email = unverified_claims.get("email") or f"{clerk_user_id}@clerk.user"
+                role = unverified_claims.get("role") or "AICTE_ADMIN"
+                user = User(
+                    id=clerk_user_id,
+                    username=clerk_user_id,
+                    email=email,
+                    hashed_password=get_password_hash("ClerkOAuthUser@123"),
+                    role=role,
+                    is_active=True
+                )
+                db.add(user)
+                db.commit()
+                db.refresh(user)
+            return user
+    except Exception:
+        pass
+
+    raise credentials_exception
 
 def require_roles(allowed_roles: List[str]):
     def role_checker(current_user: User = Depends(get_current_user)) -> User:

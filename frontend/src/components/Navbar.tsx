@@ -1,6 +1,7 @@
 import React from 'react';
 import { UserInfo, api } from '../services/api';
 import { Shield, Eye, EyeOff, LogOut, UserCheck } from 'lucide-react';
+import { ClerkUserSection } from './ClerkUserSection';
 
 interface NavbarProps {
   user: UserInfo | null;
@@ -18,26 +19,27 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSwitchPersona
 }) => {
   const roleBadges: Record<string, { label: string; color: string }> = {
-    AICTE_ADMIN: { label: "AICTE Central Regulator", color: "bg-purple-900/40 text-purple-300 border-purple-700/50" },
-    INSTITUTION_ADMIN: { label: "College Registrar", color: "bg-blue-900/40 text-blue-300 border-blue-700/50" },
-    DATA_ENTRY_OFFICER: { label: "Admissions DEO", color: "bg-emerald-900/40 text-emerald-300 border-emerald-700/50" },
-    AUDITOR: { label: "Independent Auditor", color: "bg-amber-900/40 text-amber-300 border-amber-700/50" },
-    EXTERNAL_VERIFIER: { label: "Employer Verifier", color: "bg-cyan-900/40 text-cyan-300 border-cyan-700/50" }
+    AICTE_ADMIN: { label: "AICTE Central Regulator", color: "bg-purple-100 text-purple-900 border-purple-300 font-bold" },
+    INSTITUTION_ADMIN: { label: "College Registrar", color: "bg-blue-100 text-blue-900 border-blue-300 font-bold" },
+    DATA_ENTRY_OFFICER: { label: "Admissions DEO", color: "bg-emerald-100 text-emerald-900 border-emerald-300 font-bold" },
+    AUDITOR: { label: "Independent Auditor", color: "bg-amber-100 text-amber-900 border-amber-300 font-bold" },
+    EXTERNAL_VERIFIER: { label: "Employer Verifier", color: "bg-cyan-100 text-cyan-900 border-cyan-300 font-bold" }
   };
 
-  const badge = roleBadges[user?.role || ""] || { label: user?.role || "User", color: "bg-slate-800 text-slate-300 border-slate-700" };
+  const badge = roleBadges[user?.role || ""] || { label: user?.role || "User", color: "bg-slate-100 text-slate-800 border-slate-300 font-bold" };
 
   return (
     <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between shadow-sm no-print">
       {/* Left: Organization Context */}
       <div className="flex items-center space-x-3">
         <div className="flex items-center space-x-2">
-          <span className="font-semibold text-slate-800 text-sm">
+          <span className="font-bold text-slate-900 text-sm">
             All India Council for Technical Education
           </span>
           <span className="text-slate-300">|</span>
-          <span className="text-xs text-slate-500 font-medium">
-            Regulation Bureau — APAAR Gateway
+          <span className="text-xs text-blue-700 font-bold tracking-wide flex items-center gap-1.5">
+            <span>APAAR-Verify</span>
+            <span className="text-[10px] font-semibold text-slate-500 font-normal">Surveillance Gateway</span>
           </span>
         </div>
       </div>
@@ -116,6 +118,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             {user?.role}
           </span>
         </div>
+
+        {/* Clerk Profile Avatar */}
+        {Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY) && (
+          <ClerkUserSection />
+        )}
 
         {/* Logout */}
         <button

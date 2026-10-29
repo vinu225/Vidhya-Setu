@@ -81,7 +81,9 @@ export const App: React.FC = () => {
 
         {/* Viewport Router */}
         <main className="flex-1 overflow-y-auto bg-slate-50">
-          {currentTab === "aicte-hq" && <AicteDashboard />}
+          {currentTab === "aicte-hq" && (
+            <AicteDashboard onNavigateTab={setCurrentTab} />
+          )}
           {currentTab === "institution-portal" && (
             <InstitutionDashboard user={user} onNavigateTab={setCurrentTab} />
           )}
