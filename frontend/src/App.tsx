@@ -14,6 +14,8 @@ import { ReportsPage } from './pages/ReportsPage';
 import { AuditVault } from './pages/AuditVault';
 import { IntegrationsHealth } from './pages/IntegrationsHealth';
 import { StudentPortal } from './pages/StudentPortal';
+import { StudentSchemes } from './pages/StudentSchemes';
+import { StudentComplaints } from './pages/StudentComplaints';
 import { AuditorCopilot } from './components/AuditorCopilot';
 import './apaar.css';
 
@@ -24,7 +26,7 @@ const ROLE_ALLOWED_TABS: Record<string, string[]> = {
   DATA_ENTRY_OFFICER: ['institution', 'registry', 'upload', 'verify'],
   EXTERNAL_VERIFIER: ['verify', 'health'],
   AUDITOR: ['dashboard', 'intake', 'anomalies', 'reports', 'audit', 'verify'],
-  STUDENT: ['student-portal', 'verify']
+  STUDENT: ['student-portal', 'student-schemes', 'student-complaints', 'verify']
 };
 
 const DEFAULT_ROLE_TABS: Record<string, string> = {
@@ -189,6 +191,22 @@ export const App: React.FC = () => {
       )}
       {activeTabNorm === 'student-portal' && (
         <StudentPortal
+          user={user}
+          onNavigateTab={handleNavigate}
+          onLogout={handleLogout}
+          onSwitchPersona={handleSwitchPersona}
+        />
+      )}
+      {activeTabNorm === 'student-schemes' && (
+        <StudentSchemes
+          user={user}
+          onNavigateTab={handleNavigate}
+          onLogout={handleLogout}
+          onSwitchPersona={handleSwitchPersona}
+        />
+      )}
+      {activeTabNorm === 'student-complaints' && (
+        <StudentComplaints
           user={user}
           onNavigateTab={handleNavigate}
           onLogout={handleLogout}

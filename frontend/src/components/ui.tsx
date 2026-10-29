@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import '../apaar.css';
 import { UserInfo } from '../services/api';
 
@@ -147,7 +147,7 @@ export const ROLE_CONFIGS: Record<string, RolePortalConfig> = {
   STUDENT: {
     portalTitle: 'APAAR Citizen Wallet',
     portalSubtitle: 'Student Privacy & Credential Manager',
-    badgeText: 'Verified Citizen',
+    badgeText: '',
     badgeTone: 'green',
     icon: '🪪',
     groups: [
@@ -155,6 +155,13 @@ export const ROLE_CONFIGS: Record<string, RolePortalConfig> = {
         group: 'My Credentials',
         items: [
           { id: 'student-portal', label: 'My Digital APAAR Card' },
+          { id: 'student-schemes', label: 'Scholarships & Internships' },
+          { id: 'student-complaints', label: 'Grievance & Inquiries' }
+        ]
+      },
+      {
+        group: 'Tools',
+        items: [
           { id: 'verify', label: 'Public Verifier Preview' }
         ]
       }
@@ -179,7 +186,11 @@ export const normalizeTabId = (tab: string): string => {
     'system-health': 'health',
     'consent-manager': 'student-portal',
     'share-credentials': 'student-portal',
-    'access-log': 'student-portal'
+    'access-log': 'student-portal',
+    'scholarships': 'student-schemes',
+    'internships': 'student-schemes',
+    'grievances': 'student-complaints',
+    'complaints': 'student-complaints'
   };
   return map[tab] || tab;
 };
@@ -197,9 +208,79 @@ export const denormalizeTabId = (tab: string): string => {
     'reports': 'regulatory-reports',
     'audit': 'dpdp-audit',
     'health': 'system-health',
-    'student-portal': 'student-portal'
+    'student-portal': 'student-portal',
+    'student-schemes': 'student-schemes',
+    'student-complaints': 'student-complaints'
   };
   return map[tab] || tab;
+};
+
+export const getPageHeader = (active: string, role?: string) => {
+  const norm = normalizeTabId(active);
+  const titles: Record<string, { title: string; eyebrow: string }> = {
+    'student-portal': {
+      title: 'Student Credential & Privacy Portal',
+      eyebrow: 'DPDP Act 2023 Compliant Citizen Wallet'
+    },
+    'student-schemes': {
+      title: 'AICTE Scholarships & Internships',
+      eyebrow: 'AICTE National Schemes & Programs'
+    },
+    'student-complaints': {
+      title: 'Student Grievance & Inquiries Portal',
+      eyebrow: 'Time-Bound Institutional Grievance Redressal'
+    },
+    'dashboard': {
+      title: 'National Academic Repository & Oversight',
+      eyebrow: 'AICTE Central Headquarters'
+    },
+    'institution': {
+      title: 'Institution Academic Repository & Intake',
+      eyebrow: 'Authorized Technical Institution'
+    },
+    'registry': {
+      title: 'Institution Student Registry',
+      eyebrow: 'Live Enrolment Records'
+    },
+    'upload': {
+      title: 'Bulk Batch CSV Ingestion',
+      eyebrow: 'Secure Data Ingestion'
+    },
+    'anomalies': {
+      title: 'Intake Anomaly & Fraud Detection Engine',
+      eyebrow: 'Automated AI Risk Screening'
+    },
+    'intake': {
+      title: 'Accredited Intake Monitoring',
+      eyebrow: 'Sanction Cap Enforcement'
+    },
+    'reports': {
+      title: 'Regulatory Compliance Reports',
+      eyebrow: 'Council Audit & Statistics'
+    },
+    'verify': {
+      title: 'Digital Credential Verification Portal',
+      eyebrow: 'Cryptographic APAAR Verification'
+    },
+    'audit': {
+      title: 'DPDP Act 2023 Immutable Audit Vault',
+      eyebrow: 'Cryptographic Tamper-Proof Audit Trail'
+    },
+    'system-health': {
+      title: 'Verification Node Health & Infrastructure',
+      eyebrow: 'System Telemetry & Status'
+    }
+  };
+
+  if (titles[norm]) {
+    return titles[norm];
+  }
+
+  const roleConfig = ROLE_CONFIGS[role || 'AICTE_ADMIN'] || ROLE_CONFIGS.AICTE_ADMIN;
+  return {
+    title: roleConfig.portalTitle || 'Academic Portal',
+    eyebrow: roleConfig.portalSubtitle || 'AICTE Verified'
+  };
 };
 
 // ------------------------------------------------------------------------------
@@ -211,6 +292,8 @@ interface ShellProps {
   onNavigate?: (tabId: string) => void;
   onLogout?: () => void;
   onSwitchPersona?: (username: string) => void;
+  headerTitle?: string;
+  headerEyebrow?: string;
   children: React.ReactNode;
 }
 
@@ -220,11 +303,19 @@ export const Shell: React.FC<ShellProps> = ({
   onNavigate,
   onLogout,
   onSwitchPersona,
+  headerTitle,
+  headerEyebrow,
   children
 }) => {
   const currentNorm = normalizeTabId(active);
   const userRole = user?.role || 'AICTE_ADMIN';
   const roleConfig = ROLE_CONFIGS[userRole] || ROLE_CONFIGS.AICTE_ADMIN;
+  const pageDefault = getPageHeader(active, userRole);
+  const resolvedTitle = headerTitle || pageDefault.title;
+  const resolvedEyebrow = headerEyebrow !== undefined ? headerEyebrow : pageDefault.eyebrow;
+
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const handleNavClick = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
@@ -232,6 +323,103 @@ export const Shell: React.FC<ShellProps> = ({
       onNavigate(id);
     }
   };
+
+  const now = new Date();
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const formattedDate = `${dayNames[now.getDay()]}, ${now.getDate()} ${monthNames[now.getMonth()]}, ${now.getFullYear()}`;
+
+  const getConsoleInfo = () => {
+    switch (userRole) {
+      case 'STUDENT':
+        return {
+          icon: (
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#991B1B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
+              <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
+            </svg>
+          ),
+          label: 'Student Console',
+          displayName: 'Rahul Sharma',
+          subRole: 'Student'
+        };
+      case 'AICTE_ADMIN':
+        return {
+          icon: (
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#991B1B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+              <path d="M10 4v4"></path>
+              <path d="M2 8h20"></path>
+              <path d="M6 4v4"></path>
+            </svg>
+          ),
+          label: 'Administration Console',
+          displayName: 'Admin S. Sengupta',
+          subRole: 'Administrator'
+        };
+      case 'INSTITUTION_ADMIN':
+        return {
+          icon: (
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#991B1B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+              <polyline points="9 22 9 12 15 12 15 22"></polyline>
+            </svg>
+          ),
+          label: 'Institution Console',
+          displayName: 'DTU Registrar',
+          subRole: 'Institutional Admin'
+        };
+      case 'DATA_ENTRY_OFFICER':
+        return {
+          icon: (
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#991B1B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 20h9"></path>
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+            </svg>
+          ),
+          label: 'Admissions Console',
+          displayName: 'KNIT Admissions Officer',
+          subRole: 'Data Entry Officer'
+        };
+      case 'EXTERNAL_VERIFIER':
+        return {
+          icon: (
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#991B1B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          ),
+          label: 'Verifier Console',
+          displayName: 'Corporate Recruiter',
+          subRole: 'Authorized Verifier'
+        };
+      case 'AUDITOR':
+        return {
+          icon: (
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#991B1B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+          ),
+          label: 'Regulatory Console',
+          displayName: 'State Audit Officer',
+          subRole: 'Regulatory Auditor'
+        };
+      default:
+        return {
+          icon: (
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#991B1B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
+              <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
+            </svg>
+          ),
+          label: 'Student Console',
+          displayName: user?.username || 'User',
+          subRole: userRole
+        };
+    }
+  };
+
+  const consoleInfo = getConsoleInfo();
 
   return (
     <div className="ap">
@@ -251,11 +439,13 @@ export const Shell: React.FC<ShellProps> = ({
           </div>
 
           {/* Role Badge Indicator */}
-          <div style={{ padding: '0 8px 14px' }}>
-            <Badge tone={roleConfig.badgeTone}>
-              {roleConfig.badgeText}
-            </Badge>
-          </div>
+          {roleConfig.badgeText ? (
+            <div style={{ padding: '0 8px 14px' }}>
+              <Badge tone={roleConfig.badgeTone}>
+                {roleConfig.badgeText}
+              </Badge>
+            </div>
+          ) : null}
 
           {/* Navigation Items Filtered Strictly by Dedicated Role Configuration */}
           {roleConfig.groups.map(({ group, items }) => (
@@ -278,53 +468,318 @@ export const Shell: React.FC<ShellProps> = ({
             </div>
           ))}
 
-          {/* User Status / Persona Switcher */}
-          {user && (
-            <div style={{ marginTop: 'auto', paddingTop: 16, borderTop: '1px solid #1e3a5f' }}>
-              <div style={{ padding: '0 12px 8px' }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{user.username}</div>
-                <div style={{ fontSize: 11, color: '#94A3B8' }}>{user.role}</div>
-                {user.institution_name && (
-                  <div style={{ fontSize: 11, color: '#0F766E', marginTop: 2 }}>{user.institution_name}</div>
-                )}
-              </div>
-
-              {onSwitchPersona && (
-                <div style={{ padding: '4px 12px 10px' }}>
-                  <label style={{ fontSize: 10, color: '#94A3B8', display: 'block', marginBottom: 4, textTransform: 'uppercase' }}>
-                    Switch Persona
-                  </label>
-                  <select
-                    style={{ width: '100%', padding: '6px 8px', fontSize: 11, background: '#071A31', color: '#CBD5E1', border: '1px solid #1e3a5f', borderRadius: 6 }}
-                    value={user.username}
-                    onChange={e => onSwitchPersona(e.target.value)}
-                  >
-                    <option value="aicte_admin">AICTE National Admin</option>
-                    <option value="dtu_admin">DTU Registrar (Institution)</option>
-                    <option value="knit_deo">KNIT Data Entry Officer</option>
-                    <option value="verifier">Corporate Verifier (Employer)</option>
-                    <option value="auditor">Regulatory Officer / Auditor</option>
-                    <option value="student_demo">Student (Rahul Sharma)</option>
-                  </select>
-                </div>
-              )}
-
-              {onLogout && (
-                <button
-                  type="button"
-                  onClick={onLogout}
-                  className="btn"
-                  style={{ width: 'calc(100% - 24px)', margin: '0 12px', padding: '6px 12px', fontSize: 12, background: 'transparent', color: '#CBD5E1', borderColor: '#1e3a5f' }}
-                >
-                  Sign out
-                </button>
-              )}
-            </div>
-          )}
         </aside>
 
         {/* Main Content Area */}
-        <main className="main">{children}</main>
+        <main
+          className="main"
+          onClick={() => {
+            if (showUserMenu) setShowUserMenu(false);
+            if (showNotifications) setShowNotifications(false);
+          }}
+        >
+          {/* Top Header Bar matching reference: Left Bold Heading + Right Console Tools */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: 16,
+              marginBottom: 16,
+              paddingBottom: 12,
+              borderBottom: '1px solid #E2E8F0',
+              position: 'relative',
+              flexWrap: 'wrap'
+            }}
+          >
+            {/* Left side: Bold Heading inline with Student Console, Date & Notification */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 240 }}>
+              {resolvedEyebrow && (
+                <div
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 700,
+                    color: '#2563EB',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.8
+                  }}
+                >
+                  {resolvedEyebrow}
+                </div>
+              )}
+              <h1
+                style={{
+                  margin: 0,
+                  fontSize: 22,
+                  fontWeight: 800,
+                  color: '#0F172A',
+                  letterSpacing: -0.4,
+                  lineHeight: 1.2
+                }}
+              >
+                {resolvedTitle}
+              </h1>
+            </div>
+
+            {/* Right side: Tools inline with heading (Console, Date, Bell, User) */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              {/* 1. Console Pill */}
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 7,
+                  background: '#FAF9F6',
+                  border: '1px solid #E2E8F0',
+                  padding: '5px 12px',
+                  borderRadius: 6,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: '#1E293B',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+                }}
+              >
+                <span style={{ display: 'flex', alignItems: 'center' }}>{consoleInfo.icon}</span>
+                <span>{consoleInfo.label}</span>
+              </div>
+
+              {/* 2. Date */}
+              <div style={{ fontSize: 12, color: '#64748B', fontWeight: 500, letterSpacing: 0.1 }}>
+                {formattedDate}
+              </div>
+
+              {/* 3. Notification Bell */}
+              <div style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowNotifications(!showNotifications);
+                    setShowUserMenu(false);
+                  }}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: 6,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: '50%',
+                    position: 'relative',
+                    color: '#475569',
+                    transition: 'background 0.2s'
+                  }}
+                  title="Notifications"
+                  aria-label="Notifications"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                  </svg>
+                  {/* Red unread indicator dot */}
+                  <span
+                    style={{
+                      position: 'absolute',
+                      top: 5,
+                      right: 5,
+                      width: 7,
+                      height: 7,
+                      borderRadius: '50%',
+                      background: '#EF4444',
+                      border: '1.5px solid #fff'
+                    }}
+                  />
+                </button>
+
+                {/* Notification Dropdown Popover */}
+                {showNotifications && (
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      position: 'absolute',
+                      right: 0,
+                      top: 38,
+                      width: 320,
+                      background: '#fff',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: 10,
+                      boxShadow: '0 10px 25px -5px rgba(0,0,0,0.12)',
+                      zIndex: 100,
+                      padding: 12
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #E2E8F0', paddingBottom: 8, marginBottom: 8 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#0B2545' }}>Notifications</span>
+                      <span style={{ fontSize: 10, background: '#EFF6FF', color: '#1D4ED8', padding: '1px 6px', borderRadius: 10, fontWeight: 600 }}>2 New</span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div style={{ padding: '8px', background: '#F8FAFC', borderRadius: 6, fontSize: 11, border: '1px solid #F1F5F9' }}>
+                        <div style={{ fontWeight: 600, color: '#0F172A' }}>PMSSS Scholarship Renewal Verified</div>
+                        <div style={{ color: '#64748B', marginTop: 2 }}>DTU Admissions Desk validated income and category certificates.</div>
+                      </div>
+                      <div style={{ padding: '8px', background: '#F8FAFC', borderRadius: 6, fontSize: 11, border: '1px solid #F1F5F9' }}>
+                        <div style={{ fontWeight: 600, color: '#0F172A' }}>Grievance Ticket Assigned</div>
+                        <div style={{ color: '#64748B', marginTop: 2 }}>Ticket GRV-2026-0224 forwarded to CGRC for institutional action.</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 4. Circular Avatar & User Info with Dropdown (Login/Sign out option in circle) */}
+              <div style={{ position: 'relative' }}>
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowUserMenu(!showUserMenu);
+                    setShowNotifications(false);
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    cursor: 'pointer',
+                    padding: '3px 8px',
+                    borderRadius: 24,
+                    border: '1px solid transparent',
+                    transition: 'background 0.2s',
+                    userSelect: 'none'
+                  }}
+                  title="Account menu: Login & Sign out"
+                >
+                  {/* Circular Avatar (in circle) */}
+                  <div
+                    style={{
+                      width: 30,
+                      height: 30,
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#334155'
+                    }}
+                  >
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#334155" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <circle cx="12" cy="10" r="3.2"></circle>
+                      <path d="M6.5 19.5c1.2-2.5 3.3-3.5 5.5-3.5s4.3 1 5.5 3.5"></path>
+                    </svg>
+                  </div>
+
+                  {/* Name & Sub-Role text with chevron */}
+                  <div style={{ textAlign: 'left', lineHeight: 1.2 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#0F172A', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span>{consoleInfo.displayName}</span>
+                      <span style={{ fontSize: 10, color: '#64748B' }}>▾</span>
+                    </div>
+                    <div style={{ fontSize: 10, color: '#64748B' }}>
+                      {consoleInfo.subRole}
+                    </div>
+                  </div>
+                </div>
+
+                {/* User Dropdown Menu with Details, Login Switcher and Sign Out */}
+                {showUserMenu && (
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      position: 'absolute',
+                      right: 0,
+                      top: 44,
+                      width: 250,
+                      background: '#fff',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: 10,
+                      boxShadow: '0 12px 28px -4px rgba(0,0,0,0.15)',
+                      zIndex: 100,
+                      padding: 10
+                    }}
+                  >
+                    {/* User Profile Header */}
+                    <div style={{ padding: '6px 8px', borderBottom: '1px solid #E2E8F0', marginBottom: 8 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#0B2545' }}>{consoleInfo.displayName}</div>
+                      <div style={{ fontSize: 11, color: '#64748B' }}>{user?.email || 'student@dtu.ac.in'}</div>
+                      {user?.institution_name && (
+                        <div style={{ fontSize: 10, color: '#0F766E', marginTop: 3, fontWeight: 500 }}>{user.institution_name}</div>
+                      )}
+                    </div>
+
+                    {/* Switch Persona / Login Option */}
+                    {onSwitchPersona && (
+                      <div style={{ padding: '6px 8px', borderBottom: '1px solid #E2E8F0', marginBottom: 8 }}>
+                        <label style={{ fontSize: 10, color: '#64748B', display: 'block', marginBottom: 4, fontWeight: 600, textTransform: 'uppercase' }}>
+                          Switch Persona / Login As
+                        </label>
+                        <select
+                          style={{
+                            width: '100%',
+                            padding: '6px 8px',
+                            fontSize: 11,
+                            background: '#F8FAFC',
+                            color: '#0F172A',
+                            border: '1px solid #CBD5E1',
+                            borderRadius: 6,
+                            outline: 'none',
+                            cursor: 'pointer'
+                          }}
+                          value={user?.username || 'student_demo'}
+                          onChange={(e) => {
+                            setShowUserMenu(false);
+                            onSwitchPersona(e.target.value);
+                          }}
+                        >
+                          <option value="student_demo">Student (Rahul Sharma)</option>
+                          <option value="aicte_admin">AICTE National Admin</option>
+                          <option value="dtu_admin">DTU Registrar (Institution)</option>
+                          <option value="knit_deo">KNIT Data Entry Officer</option>
+                          <option value="verifier">Corporate Verifier (Employer)</option>
+                          <option value="auditor">Regulatory Officer / Auditor</option>
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Sign Out Button */}
+                    {onLogout && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowUserMenu(false);
+                          onLogout();
+                        }}
+                        style={{
+                          width: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 8,
+                          padding: '8px 12px',
+                          background: '#FEF2F2',
+                          border: '1px solid #FCA5A5',
+                          borderRadius: 6,
+                          color: '#B91C1C',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          transition: 'background 0.2s'
+                        }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                          <polyline points="16 17 21 12 16 7"></polyline>
+                          <line x1="21" y1="12" x2="9" y2="12"></line>
+                        </svg>
+                        <span>Sign out</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {children}
+        </main>
       </div>
     </div>
   );
@@ -337,20 +792,26 @@ export const Head = ({
   eyebrow,
   title,
   sub,
-  children
+  children,
+  showTitle = false
 }: {
-  eyebrow: string;
-  title: string;
+  eyebrow?: string;
+  title?: string;
   sub?: string;
   children?: React.ReactNode;
+  showTitle?: boolean;
 }) => (
-  <header className="head">
-    <div>
-      <div className="eyebrow">{eyebrow}</div>
-      <h1>{title}</h1>
-      {sub && <p className="sub">{sub}</p>}
+  <header className="head" style={{ marginBottom: 20 }}>
+    <div style={{ flex: 1, minWidth: 260 }}>
+      {showTitle && (
+        <>
+          {eyebrow && <div className="eyebrow">{eyebrow}</div>}
+          {title && <h1>{title}</h1>}
+        </>
+      )}
+      {sub && <p className="sub" style={{ margin: 0, color: '#64748B', fontSize: 13, lineHeight: 1.5 }}>{sub}</p>}
     </div>
-    <div className="row">{children}</div>
+    {children && <div className="row">{children}</div>}
   </header>
 );
 
