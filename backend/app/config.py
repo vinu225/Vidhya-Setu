@@ -25,8 +25,17 @@ class Settings(BaseSettings):
     CLERK_PUBLISHABLE_KEY: Optional[str] = os.getenv("CLERK_PUBLISHABLE_KEY", None)
     CLERK_JWKS_URL: Optional[str] = os.getenv("CLERK_JWKS_URL", None)
 
+    # Supabase Cloud Configuration
+    SUPABASE_URL: Optional[str] = os.getenv("SUPABASE_URL", None)
+    SUPABASE_ANON_KEY: Optional[str] = os.getenv("SUPABASE_ANON_KEY", None)
+
     class Config:
-        env_file = ".env"
+        env_file = [
+            os.path.join(_BACKEND_DIR, ".env"),
+            os.path.join(os.path.dirname(_BACKEND_DIR), ".env"),
+            ".env"
+        ]
         case_sensitive = True
+        extra = "allow"
 
 settings = Settings()

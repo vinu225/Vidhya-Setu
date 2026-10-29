@@ -1,11 +1,25 @@
-# Environment variables
-.env
-.env.local
-.env.*.local
-!.env.example
+# ==============================================================================
+# EduVerify AI — Git Ignore Configuration
+# SIH Problem Statement ID: 26263 (AICTE)
+# ==============================================================================
 
-# Python
+# ------------------------------------------------------------------------------
+# 1. Environment Variables & Secret Configurations
+# ------------------------------------------------------------------------------
+.env
+.env.*
+*.env
+**/.env
+**/.env.*
+!.env.example
+!.env.*.example
+
+# ------------------------------------------------------------------------------
+# 2. Python & Bytecode
+# ------------------------------------------------------------------------------
 __pycache__/
+*/__pycache__/
+*/*/__pycache__/
 *.py[cod]
 *$py.class
 *.so
@@ -28,20 +42,72 @@ share/python-wheels/
 *.egg
 MANIFEST
 
-# Virtual Environments
-venv2*/
-venv2/
+# ------------------------------------------------------------------------------
+# 3. Virtual Environments
+# ------------------------------------------------------------------------------
 venv/
 venv*/
+venv2/
+venv2*/
 env/
 env*/
 ENV/
-backend/venv/
-backend/venv*/
 .venv/
 .venv*/
+backend/venv/
+backend/venv*/
 
-# Presentations, Slides & Design Assets
+# ------------------------------------------------------------------------------
+# 4. Node.js & Frontend Build Outputs
+# ------------------------------------------------------------------------------
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+frontend/.vite/
+.eslintcache
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ------------------------------------------------------------------------------
+# 5. AI / LLM & Machine Learning Weights & Cache
+# ------------------------------------------------------------------------------
+# Model weights (Qwen, Ollama, GGUF, PyTorch, Hugging Face)
+*.gguf
+*.bin
+*.safetensors
+*.pt
+*.pth
+*.onnx
+models/
+model_checkpoints/
+.cache/
+huggingface/
+transformers_cache/
+
+# ------------------------------------------------------------------------------
+# 6. Database Files & Storage Dumps
+# ------------------------------------------------------------------------------
+*.sqlite
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+eduverify.db
+backend/eduverify.db
+scripts/eduverify.db
+*.sql.gz
+*.dump
+backend/sql_batches/
+backend/sql_tables/
+
+# ------------------------------------------------------------------------------
+# 7. Presentations, Slides, Reports & Pitch Materials
+# ------------------------------------------------------------------------------
 ppt/
 *.ppt
 *.pptx
@@ -51,8 +117,11 @@ ppt/
 ~$*.xlsx
 *.pdf
 
-# Testing & Coverage
+# ------------------------------------------------------------------------------
+# 8. Testing & Code Coverage
+# ------------------------------------------------------------------------------
 .pytest_cache/
+backend/.pytest_cache/
 .coverage
 .coverage.*
 htmlcov/
@@ -63,31 +132,19 @@ coverage.xml
 *.cover
 *.py,cover
 
-# Node.js / Frontend
-node_modules/
-frontend/node_modules/
-frontend/dist/
-dist/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-# Database & Storage
-*.sqlite3
-*.db
-eduverify.db
-eduverify.db-shm
-eduverify.db-wal
-
-# Temporary / Scratch files
+# ------------------------------------------------------------------------------
+# 9. Logs, Temp & Scratch Storage
+# ------------------------------------------------------------------------------
 *.log
+logs/
 scratch/
 tmp/
 temp/
+.tempmediaStorage/
 
-# IDE & OS files
+# ------------------------------------------------------------------------------
+# 10. IDE & OS Metadata
+# ------------------------------------------------------------------------------
 .vscode/
 .idea/
 *.swp
