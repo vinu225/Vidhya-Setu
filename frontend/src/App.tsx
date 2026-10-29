@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api, UserInfo, getStoredUser } from './services/api';
-import { Sidebar } from './components/Sidebar';
-import { Navbar } from './components/Navbar';
+import { normalizeTabId } from './components/ui';
 import { LoginPage } from './pages/LoginPage';
 import { AicteDashboard } from './pages/AicteDashboard';
 import { InstitutionDashboard } from './pages/InstitutionDashboard';
@@ -15,18 +14,18 @@ import { ReportsPage } from './pages/ReportsPage';
 import { AuditVault } from './pages/AuditVault';
 import { IntegrationsHealth } from './pages/IntegrationsHealth';
 import { AuditorCopilot } from './components/AuditorCopilot';
+import './apaar.css';
 
 export const App: React.FC = () => {
   const [user, setUser] = useState<UserInfo | null>(getStoredUser());
-  const [currentTab, setCurrentTab] = useState<string>("aicte-hq");
-  const [piiMasked, setPiiMasked] = useState<boolean>(true);
+  const [currentTab, setCurrentTab] = useState<string>('dashboard');
 
-  // If user role is institution admin or DEO, default to institution-portal
+  // Default initial tab based on role
   useEffect(() => {
-    if (user?.role === "INSTITUTION_ADMIN" || user?.role === "DATA_ENTRY_OFFICER") {
-      setCurrentTab("institution-portal");
+    if (user?.role === 'INSTITUTION_ADMIN' || user?.role === 'DATA_ENTRY_OFFICER') {
+      setCurrentTab('institution');
     } else {
-      setCurrentTab("aicte-hq");
+      setCurrentTab('dashboard');
     }
   }, [user]);
 
@@ -41,14 +40,14 @@ export const App: React.FC = () => {
 
   const handleSwitchPersona = async (username: string) => {
     const passwords: Record<string, string> = {
-      aicte_admin: "Admin@123",
-      dtu_admin: "College@123",
-      knit_deo: "College@123",
-      auditor: "Auditor@123",
-      verifier: "Verifier@123"
+      aicte_admin: 'Admin@123',
+      dtu_admin: 'College@123',
+      knit_deo: 'College@123',
+      auditor: 'Auditor@123',
+      verifier: 'Verifier@123'
     };
     try {
-      const pwd = passwords[username] || "Admin@123";
+      const pwd = passwords[username] || 'Admin@123';
       const res = await api.login(username, pwd);
       setUser(res.user_info);
     } catch (err: any) {
@@ -56,58 +55,110 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleNavigate = (tab: string) => {
+    setCurrentTab(normalizeTabId(tab));
+  };
+
   if (!user) {
     return <LoginPage onLoginSuccess={handleLoginSuccess} />;
   }
 
-  return (
-    <div className="flex h-screen bg-slate-100 overflow-hidden font-sans">
-      {/* Persistent Left Sidebar */}
-      <Sidebar
-        currentTab={currentTab}
-        setCurrentTab={setCurrentTab}
-        user={user}
-      />
+  const activeTabNorm = normalizeTabId(currentTab);
 
-      {/* Main View Area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Persistent Top Navbar */}
-        <Navbar
+  return (
+    <>
+      {activeTabNorm === 'dashboard' && (
+        <AicteDashboard
           user={user}
+          onNavigateTab={handleNavigate}
           onLogout={handleLogout}
-          piiMasked={piiMasked}
-          setPiiMasked={setPiiMasked}
           onSwitchPersona={handleSwitchPersona}
         />
-
-        {/* Viewport Router */}
-        <main className="flex-1 overflow-y-auto bg-slate-50">
-          {currentTab === "aicte-hq" && (
-            <AicteDashboard onNavigateTab={setCurrentTab} />
-          )}
-          {currentTab === "institution-portal" && (
-            <InstitutionDashboard user={user} onNavigateTab={setCurrentTab} />
-          )}
-          {currentTab === "student-registry" && (
-            <StudentRegistry user={user} piiMasked={piiMasked} />
-          )}
-          {currentTab === "bulk-upload" && (
-            <BulkUploadWizard user={user} onNavigateTab={setCurrentTab} />
-          )}
-          {currentTab === "anomaly-center" && <AnomalyCenter user={user} />}
-          {currentTab === "intake-monitor" && <IntakeMonitoring />}
-          {currentTab === "identity-graph" && <IdentityGraphView />}
-          {currentTab === "credential-manager" && <VerificationPortal />}
-          {currentTab === "public-verify" && <VerificationPortal />}
-          {currentTab === "regulatory-reports" && <ReportsPage />}
-          {currentTab === "dpdp-audit" && <AuditVault />}
-          {currentTab === "system-health" && <IntegrationsHealth />}
-        </main>
-      </div>
+      )}
+      {activeTabNorm === 'institution' && (
+        <InstitutionDashboard
+          user={user}
+          onNavigateTab={handleNavigate}
+          onLogout={handleLogout}
+          onSwitchPersona={handleSwitchPersona}
+        />
+      )}
+      {activeTabNorm === 'registry' && (
+        <StudentRegistry
+          user={user}
+          onNavigateTab={handleNavigate}
+          onLogout={handleLogout}
+          onSwitchPersona={handleSwitchPersona}
+        />
+      )}
+      {activeTabNorm === 'upload' && (
+        <BulkUploadWizard
+          user={user}
+          onNavigateTab={handleNavigate}
+          onLogout={handleLogout}
+          onSwitchPersona={handleSwitchPersona}
+        />
+      )}
+      {activeTabNorm === 'anomalies' && (
+        <AnomalyCenter
+          user={user}
+          onNavigateTab={handleNavigate}
+          onLogout={handleLogout}
+          onSwitchPersona={handleSwitchPersona}
+        />
+      )}
+      {activeTabNorm === 'intake' && (
+        <IntakeMonitoring
+          user={user}
+          onNavigateTab={handleNavigate}
+          onLogout={handleLogout}
+          onSwitchPersona={handleSwitchPersona}
+        />
+      )}
+      {activeTabNorm === 'graph' && (
+        <IdentityGraphView
+          user={user}
+          onNavigateTab={handleNavigate}
+          onLogout={handleLogout}
+          onSwitchPersona={handleSwitchPersona}
+        />
+      )}
+      {activeTabNorm === 'verify' && (
+        <VerificationPortal
+          user={user}
+          onNavigateTab={handleNavigate}
+          onLogout={handleLogout}
+          onSwitchPersona={handleSwitchPersona}
+        />
+      )}
+      {activeTabNorm === 'reports' && (
+        <ReportsPage
+          user={user}
+          onNavigateTab={handleNavigate}
+          onLogout={handleLogout}
+          onSwitchPersona={handleSwitchPersona}
+        />
+      )}
+      {activeTabNorm === 'audit' && (
+        <AuditVault
+          user={user}
+          onNavigateTab={handleNavigate}
+          onLogout={handleLogout}
+          onSwitchPersona={handleSwitchPersona}
+        />
+      )}
+      {activeTabNorm === 'health' && (
+        <IntegrationsHealth
+          user={user}
+          onNavigateTab={handleNavigate}
+          onLogout={handleLogout}
+          onSwitchPersona={handleSwitchPersona}
+        />
+      )}
 
       {/* Floating AICTE Auditor Co-Pilot (Qwen 8B) */}
       <AuditorCopilot />
-    </div>
+    </>
   );
 };
 

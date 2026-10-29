@@ -29,6 +29,215 @@ export const clearAuth = () => {
   localStorage.removeItem("eduverify_user");
 };
 
+export interface Institution {
+  id: string;
+  official_code: string;
+  name: string;
+  state: string;
+  district?: string;
+  approval_status: string;
+  institution_type?: string;
+  nirf_rank?: number | null;
+  created_at?: string;
+  programs: Program[];
+  enrolled_count?: number;
+  active_anomalies_count?: number;
+}
+
+export interface Program {
+  id: string;
+  institution_id: string;
+  program_name: string;
+  program_code: string;
+  qualification_level?: string;
+  academic_year: string;
+  approved_regular_intake: number;
+  tfw_quota?: number;
+  ews_quota?: number;
+  nri_quota?: number;
+  fn_oci_quota?: number;
+  pmsss_quota?: number;
+  approval_reference?: string;
+  created_at?: string;
+}
+
+export interface Student {
+  id: string;
+  apaar_id_masked: string;
+  student_id: string;
+  name: string;
+  dob?: string;
+  gender?: string;
+  category?: string;
+  created_at?: string;
+  current_enrolment?: {
+    id: string;
+    student_id: string;
+    institution_id: string;
+    program_id: string;
+    institution_name?: string;
+    program_name?: string;
+    academic_year: string;
+    admission_date?: string;
+    enrolment_status: string;
+    seat_category?: string;
+    supernumerary_classification?: string;
+    tamper_hash?: string;
+    created_at?: string;
+  };
+}
+
+export interface NationalOverview {
+  total_institutions: number;
+  total_approved_regular_intake: number;
+  total_supernumerary_capacity: number;
+  total_enrolled: number;
+  regular_enrolled: number;
+  supernumerary_enrolled: number;
+  provisional_students: number;
+  excess_intake_institutions: number;
+  national_utilization_rate: number;
+  open_validation_issues: number;
+  pending_duplicate_cases: number;
+  active_anomaly_alerts: number;
+  alert_severity_breakdown: {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+  };
+  top_risk_institutions: Array<{
+    id: string;
+    official_code: string;
+    name: string;
+    state: string;
+    nirf_rank?: number | null;
+    approved_intake: number;
+    actual_enrolled: number;
+    utilization_pct: number;
+    risk_score: number;
+    reason: string;
+    alert_count: number;
+  }>;
+  recent_alerts: Array<{
+    id: string;
+    alert_id: string;
+    alert_type: string;
+    severity: string;
+    title: string;
+    description: string;
+    anomaly_score: number;
+    affected_institutions: string[];
+    created_at?: string;
+  }>;
+}
+
+export interface AnomalyAlert {
+  id: string;
+  alert_id: string;
+  alert_type: string;
+  severity: string;
+  title: string;
+  description: string;
+  anomaly_score: number;
+  affected_institutions?: string[];
+  status?: string;
+  created_at?: string;
+}
+
+export interface DuplicateCase {
+  id: string;
+  case_id: string;
+  pseudonymous_id?: string;
+  student_name: string;
+  primary_institution_id: string;
+  secondary_institution_id: string;
+  primary_institution_name?: string;
+  secondary_institution_name?: string;
+  academic_year: string;
+  detection_reason: string;
+  evidence_summary: string;
+  severity: string;
+  review_status: string;
+  resolution_notes?: string;
+  created_at?: string;
+}
+
+export interface IntakeAnalytics {
+  institution_id: string;
+  institution_name: string;
+  program_code: string;
+  program_name: string;
+  approved_regular_intake: number;
+  admitted_regular: number;
+  regular_utilization_percent: number;
+  tfw_cap?: number;
+  tfw_admitted: number;
+  ews_cap?: number;
+  ews_admitted: number;
+  nri_cap?: number;
+  nri_admitted: number;
+  fn_oci_cap?: number;
+  fn_oci_admitted: number;
+  pmsss_cap?: number;
+  pmsss_admitted: number;
+  total_approved_capacity: number;
+  total_admitted: number;
+  status: string;
+}
+
+export interface AuditEvent {
+  id: string;
+  actor_username: string;
+  actor_role: string;
+  action: string;
+  description: string;
+  institution_id?: string;
+  created_at: string;
+}
+
+export interface UploadBatch {
+  id: string;
+  institution_id: string;
+  file_name: string;
+  file_size: number;
+  total_rows: number;
+  processed_rows: number;
+  successful_rows: number;
+  failed_rows: number;
+  status: string;
+  created_at?: string;
+  issues_count?: number;
+}
+
+export interface UploadRowResult {
+  id: string;
+  batch_id: string;
+  row_number: number;
+  apaar_id?: string;
+  status: string;
+  error_message?: string;
+  raw_data?: Record<string, any>;
+}
+
+export interface VerificationResult {
+  is_valid: boolean;
+  status: string;
+  is_authentic_aicte_record: boolean;
+  message: string;
+  data_disclosed?: {
+    student_name?: string;
+    institution_name?: string;
+    program_name?: string;
+    enrolment_status?: string;
+    is_enrolled_active?: boolean;
+    is_aicte_approved?: boolean;
+    qualification_level?: string;
+  };
+  tamper_proof_seal?: string;
+  verified_at: string;
+}
+
 export const getStoredUser = (): UserInfo | null => {
   const u = localStorage.getItem("eduverify_user");
   return u ? JSON.parse(u) : null;
@@ -280,6 +489,60 @@ export const api = {
 
   getComplianceReportUrl(): string {
     return `${API_BASE}/reports/compliance`;
+  },
+
+  async downloadEnrolmentReport(institutionId?: string): Promise<void> {
+    const token = getAuthToken();
+    const q = institutionId ? `?institution_id=${institutionId}` : "";
+    const res = await fetch(`${API_BASE}/reports/enrolment${q}`, {
+      headers: token ? { "Authorization": `Bearer ${token}` } : {}
+    });
+    if (!res.ok) throw new Error("Failed to download enrolment report");
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `aicte_enrolment_report_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  },
+
+  async downloadComplianceReport(): Promise<void> {
+    const token = getAuthToken();
+    const res = await fetch(`${API_BASE}/reports/compliance`, {
+      headers: token ? { "Authorization": `Bearer ${token}` } : {}
+    });
+    if (!res.ok) throw new Error("Failed to download compliance report");
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `aicte_compliance_report_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  },
+
+  async downloadErrorCsv(batchId: string): Promise<void> {
+    const token = getAuthToken();
+    const res = await fetch(`${API_BASE}/uploads/${batchId}/errors/download`, {
+      headers: token ? { "Authorization": `Bearer ${token}` } : {}
+    });
+    if (!res.ok) throw new Error("Failed to download error CSV");
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `validation_errors_batch_${batchId.slice(0, 8)}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  },
+
+  async runNationalIntegrityScan(): Promise<any> {
+    return this.triggerNationalValidation();
+  },
+
+  async getUploadBatchResults(id: string): Promise<any[]> {
+    return this.getUploadResults(id);
   },
 
   // Audit

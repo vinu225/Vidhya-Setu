@@ -1,20 +1,33 @@
 import React, { useEffect, useState } from 'react';
-import { api } from '../services/api';
-import { BarChart3, AlertTriangle, CheckCircle2, Building2, Filter } from 'lucide-react';
+import { Shell, Head, Card, Kpi, Badge, Table, Bars, Skeleton, ErrorState, EmptyState } from '../components/ui';
+import { api, UserInfo, Institution, IntakeAnalytics } from '../services/api';
 
-export const IntakeMonitoring: React.FC = () => {
-  const [intakeData, setIntakeData] = useState<any[]>([]);
-  const [institutions, setInstitutions] = useState<any[]>([]);
-  const [selectedInst, setSelectedInst] = useState<string>("");
+interface IntakeMonitoringProps {
+  user?: UserInfo | null;
+  onNavigateTab?: (tab: string) => void;
+  onLogout?: () => void;
+  onSwitchPersona?: (username: string) => void;
+}
+
+export const IntakeMonitoring: React.FC<IntakeMonitoringProps> = ({
+  user,
+  onNavigateTab,
+  onLogout,
+  onSwitchPersona
+}) => {
+  const [intakeData, setIntakeData] = useState<IntakeAnalytics[]>([]);
+  const [institutions, setInstitutions] = useState<Institution[]>([]);
+  const [selectedInst, setSelectedInst] = useState<string>(user?.institution_id || '');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchInstitutions = async () => {
       try {
         const insts = await api.getInstitutions();
         setInstitutions(insts);
-      } catch (err) {
-        console.error("Failed to load institutions", err);
+      } catch (err: any) {
+        console.error('Failed to load institutions', err);
       }
     };
     fetchInstitutions();
@@ -23,10 +36,12 @@ export const IntakeMonitoring: React.FC = () => {
   const loadIntake = async () => {
     try {
       setLoading(true);
+      setError(null);
       const data = await api.getIntakeAnalytics(selectedInst || undefined);
       setIntakeData(data);
-    } catch (err) {
-      console.error("Failed to load intake analytics", err);
+    } catch (err: any) {
+      console.error('Failed to load intake analytics', err);
+      setError(err.message || 'Error loading intake compliance data.');
     } finally {
       setLoading(false);
     }
@@ -36,131 +51,165 @@ export const IntakeMonitoring: React.FC = () => {
     loadIntake();
   }, [selectedInst]);
 
+  // Aggregate KPIs
+  const totalApproved = intakeData.reduce((sum, item) => sum + item.approved_regular_intake, 0);
+  const totalReported = intakeData.reduce((sum, item) => sum + item.admitted_regular, 0);
+  const overIntakeItems = intakeData.filter(item => item.admitted_regular > item.approved_regular_intake);
+  const overIntakeSeats = overIntakeItems.reduce(
+    (sum, item) => sum + (item.admitted_regular - item.approved_regular_intake),
+    0
+  );
+
+  // Bars data for top programs / colleges
+  const barRows: [string, number, number][] = intakeData.slice(0, 8).map(item => [
+    `${item.program_name.slice(0, 16)} (${item.institution_name.slice(0, 12)})`,
+    item.approved_regular_intake,
+    item.admitted_regular
+  ]);
+
+  // Table rows matching design
+  const tableRows = intakeData.slice(0, 15).map(item => {
+    const isOver = item.admitted_regular > item.approved_regular_intake;
+    const isNear = !isOver && item.admitted_regular >= item.approved_regular_intake * 0.9;
+
+    const statusBadge = isOver ? (
+      <Badge tone="red">Over limit (+{item.admitted_regular - item.approved_regular_intake})</Badge>
+    ) : isNear ? (
+      <Badge tone="amber">Approaching ({item.regular_utilization_percent}%)</Badge>
+    ) : (
+      <Badge tone="green">Within limit</Badge>
+    );
+
+    return [
+      <span>
+        <strong>{item.institution_name}</strong>
+        <span className="mono" style={{ display: 'block', fontSize: 11, color: '#64748B' }}>
+          {item.program_name} ({item.program_code})
+        </span>
+      </span>,
+      <span className="mono">{item.approved_regular_intake.toLocaleString('en-IN')}</span>,
+      <span className="mono">{item.admitted_regular.toLocaleString('en-IN')}</span>,
+      statusBadge
+    ];
+  });
+
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-            <BarChart3 className="w-5 h-5 text-blue-600" />
-            <span>Intake Compliance & Quota Watchdog</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Enforces AICTE Approval Process Handbook (APH) ceilings for Core Regular Intake, TFW (5%), EWS (10%), NRI (5%), and FN/OCI (15%).
-          </p>
-        </div>
+    <Shell
+      active="intake"
+      user={user}
+      onNavigate={onNavigateTab}
+      onLogout={onLogout}
+      onSwitchPersona={onSwitchPersona}
+    >
+      <Head
+        eyebrow="Intake compliance"
+        title="Intake monitoring"
+        sub="Approved intake quotas against reported student enrolment records."
+      >
+        <select
+          value={selectedInst}
+          onChange={e => setSelectedInst(e.target.value)}
+          style={{ maxWidth: 260 }}
+        >
+          <option value="">All institutions</option>
+          {institutions.map(inst => (
+            <option key={inst.id} value={inst.id}>
+              {inst.name}
+            </option>
+          ))}
+        </select>
+        <select style={{ maxWidth: 120 }}>
+          <option>2024-25</option>
+        </select>
+      </Head>
 
-        <div className="flex items-center space-x-2">
-          <Filter className="w-4 h-4 text-slate-400" />
-          <select
-            value={selectedInst}
-            onChange={(e) => setSelectedInst(e.target.value)}
-            className="bg-slate-50 border border-slate-300 rounded-lg text-xs px-3 py-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">All Approved Institutions</option>
-            {institutions.map(i => (
-              <option key={i.id} value={i.id}>{i.name} ({i.official_code})</option>
-            ))}
-          </select>
-        </div>
+      {error && <ErrorState error={error} onRetry={loadIntake} />}
+
+      {/* 3 KPIs matching design */}
+      <div className="grid">
+        <Kpi
+          label="Approved intake"
+          value={totalApproved.toLocaleString('en-IN')}
+          note={<span className="sub">Core sanctioned regular seats</span>}
+        />
+        <Kpi
+          label="Reported enrolment"
+          value={totalReported.toLocaleString('en-IN')}
+          note={<span className="sub">Admitted candidates</span>}
+        />
+        <Kpi
+          label="Over intake"
+          value={overIntakeSeats > 0 ? `+${overIntakeSeats.toLocaleString('en-IN')}` : '0'}
+          note={
+            overIntakeItems.length > 0 ? (
+              <Badge tone="red">{overIntakeItems.length} programs breached</Badge>
+            ) : (
+              <Badge tone="green">All compliant</Badge>
+            )
+          }
+        />
       </div>
 
-      {/* Program Compliance Table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-100 text-slate-600 uppercase font-semibold">
-              <tr>
-                <th className="py-3 px-4">Institution</th>
-                <th className="py-3 px-4">Program</th>
-                <th className="py-3 px-4">Approved Core</th>
-                <th className="py-3 px-4">Admitted Core</th>
-                <th className="py-3 px-4">Core Utilization %</th>
-                <th className="py-3 px-4">TFW (5%)</th>
-                <th className="py-3 px-4">EWS (10%)</th>
-                <th className="py-3 px-4">NRI (5%)</th>
-                <th className="py-3 px-4">FN/OCI (15%)</th>
-                <th className="py-3 px-4">Total Admitted</th>
-                <th className="py-3 px-4 text-right">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {loading ? (
-                <tr>
-                  <td colSpan={11} className="py-8 text-center text-slate-500">
-                    Loading intake compliance data...
-                  </td>
-                </tr>
-              ) : intakeData.length === 0 ? (
-                <tr>
-                  <td colSpan={11} className="py-8 text-center text-slate-500">
-                    No matching program intake records found.
-                  </td>
-                </tr>
+      {loading && intakeData.length === 0 ? (
+        <div className="split" style={{ marginTop: 16 }}>
+          <Skeleton height={260} />
+          <Skeleton height={260} />
+        </div>
+      ) : (
+        <>
+          <div className="split" style={{ marginTop: 16 }}>
+            {/* Bars chart */}
+            <Card title="Capacity vs enrolment">
+              {barRows.length > 0 ? (
+                <Bars rows={barRows} />
               ) : (
-                intakeData.map((row) => {
-                  const isViolation = row.status === "OVER_INTAKE_VIOLATION";
-                  const isHigh = row.status === "WARNING_HIGH_UTILIZATION";
-                  return (
-                    <tr key={`${row.institution_id}_${row.program_code}`} className="hover:bg-slate-50">
-                      <td className="py-3 px-4 font-semibold text-slate-800">
-                        {row.institution_name}
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="font-medium text-slate-800">{row.program_name}</div>
-                        <div className="text-[10px] font-mono text-slate-500">{row.program_code}</div>
-                      </td>
-                      <td className="py-3 px-4 font-mono font-bold text-slate-800">
-                        {row.approved_regular_intake}
-                      </td>
-                      <td className="py-3 px-4 font-mono font-bold text-blue-700">
-                        {row.admitted_regular}
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className={`px-2 py-0.5 rounded font-bold ${
-                          isViolation
-                            ? "bg-rose-100 text-rose-700"
-                            : isHigh
-                            ? "bg-amber-100 text-amber-700"
-                            : "bg-emerald-100 text-emerald-700"
-                        }`}>
-                          {row.regular_utilization_percent}%
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 font-mono text-[11px]">
-                        {row.tfw_admitted} / {row.tfw_cap}
-                      </td>
-                      <td className="py-3 px-4 font-mono text-[11px]">
-                        {row.ews_admitted} / {row.ews_cap}
-                      </td>
-                      <td className="py-3 px-4 font-mono text-[11px]">
-                        {row.nri_admitted} / {row.nri_cap}
-                      </td>
-                      <td className="py-3 px-4 font-mono text-[11px]">
-                        {row.fn_oci_admitted} / {row.fn_oci_cap}
-                      </td>
-                      <td className="py-3 px-4 font-mono font-bold text-slate-900">
-                        {row.total_admitted} / {row.total_approved_capacity}
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-                          isViolation
-                            ? "bg-rose-100 text-rose-800 border-rose-300"
-                            : isHigh
-                            ? "bg-amber-100 text-amber-800 border-amber-300"
-                            : "bg-emerald-100 text-emerald-800 border-emerald-300"
-                        }`}>
-                          {isViolation ? "OVER-INTAKE" : isHigh ? "NEAR CAP" : "COMPLIANT"}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })
+                <EmptyState
+                  title="No Intake Data Available"
+                  message="Select an institution to inspect sanctioned capacity metrics."
+                />
               )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+            </Card>
+
+            {/* Status Key Card matching design */}
+            <Card title="Status key">
+              <ul className="list">
+                <li>
+                  <Badge tone="green">Within limit</Badge>
+                  <span style={{ fontSize: 13, color: 'var(--slate)' }}>under 90% capacity</span>
+                </li>
+                <li>
+                  <Badge tone="amber">Approaching</Badge>
+                  <span style={{ fontSize: 13, color: 'var(--slate)' }}>90–100% capacity</span>
+                </li>
+                <li>
+                  <Badge tone="red">Over limit</Badge>
+                  <span style={{ fontSize: 13, color: 'var(--slate)' }}>above 100% (quota breach)</span>
+                </li>
+              </ul>
+              <div style={{ marginTop: 20, padding: 12, background: 'var(--bg)', borderRadius: 8, fontSize: 12, color: 'var(--slate)' }}>
+                <strong>AICTE Rule APH 2024:</strong> Supernumerary categories (TFW 5%, EWS 10%, NRI 5%, FN/OCI 15%) are monitored on top of regular caps.
+              </div>
+            </Card>
+          </div>
+
+          {/* Compliance Table */}
+          <Card title="Institution compliance" style={{ marginTop: 16 }}>
+            {tableRows.length > 0 ? (
+              <Table
+                head={['Institution & Program', 'Approved Regular', 'Reported Enrolment', 'Status']}
+                rows={tableRows}
+              />
+            ) : (
+              <EmptyState
+                title="No Records Found"
+                message="No program intake data available for the selected filters."
+              />
+            )}
+          </Card>
+        </>
+      )}
+    </Shell>
   );
 };
+
+export default IntakeMonitoring;

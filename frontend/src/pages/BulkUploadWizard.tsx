@@ -1,22 +1,29 @@
-import React, { useState, useEffect } from 'react';
-import { api, UserInfo } from '../services/api';
-import { 
-  UploadCloud, FileSpreadsheet, Download, CheckCircle2, 
-  AlertTriangle, RefreshCw, X, ArrowRight, FileText 
-} from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Shell, Head, Card, Kpi, Badge, Table, Skeleton, ErrorState } from '../components/ui';
+import { api, UserInfo, Institution, UploadBatch, UploadRowResult } from '../services/api';
 
 interface BulkUploadWizardProps {
   user: UserInfo | null;
-  onNavigateTab: (tab: string) => void;
+  onNavigateTab?: (tab: string) => void;
+  onLogout?: () => void;
+  onSwitchPersona?: (username: string) => void;
 }
 
-export const BulkUploadWizard: React.FC<BulkUploadWizardProps> = ({ user, onNavigateTab }) => {
-  const [institutions, setInstitutions] = useState<any[]>([]);
-  const [selectedInst, setSelectedInst] = useState(user?.institution_id || "");
+export const BulkUploadWizard: React.FC<BulkUploadWizardProps> = ({
+  user,
+  onNavigateTab,
+  onLogout,
+  onSwitchPersona
+}) => {
+  const [institutions, setInstitutions] = useState<Institution[]>([]);
+  const [selectedInst, setSelectedInst] = useState(user?.institution_id || '');
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [uploadResult, setUploadResult] = useState<any>(null);
-  const [errorMsg, setErrorMsg] = useState("");
+  const [batchResult, setBatchResult] = useState<UploadBatch | null>(null);
+  const [rowResults, setRowResults] = useState<UploadRowResult[]>([]);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [isDragOver, setIsDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const fetchInsts = async () => {
@@ -24,249 +31,263 @@ export const BulkUploadWizard: React.FC<BulkUploadWizardProps> = ({ user, onNavi
         const data = await api.getInstitutions();
         setInstitutions(data);
         if (!selectedInst && data.length > 0) {
-          setSelectedInst(data[0].id);
+          setSelectedInst(user?.institution_id || data[0].id);
         }
-      } catch (err) {
-        console.error("Failed to load institutions", err);
+      } catch (err: any) {
+        console.error('Failed to load institutions list', err);
       }
     };
     fetchInsts();
-  }, [selectedInst]);
+  }, [user]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
-      setErrorMsg("");
-      setUploadResult(null);
+  const handleFileSelect = (selectedFile: File) => {
+    if (!selectedFile.name.endsWith('.csv') && !selectedFile.name.endsWith('.xlsx')) {
+      setErrorMsg('Invalid file format. Please upload a .csv or .xlsx spreadsheet.');
+      return;
+    }
+    setFile(selectedFile);
+    setErrorMsg('');
+    setBatchResult(null);
+    setRowResults([]);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFileSelect(e.dataTransfer.files[0]);
     }
   };
 
-  const handleUploadSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleUploadSubmit = async () => {
     if (!file) {
-      setErrorMsg("Please select a valid .csv or .xlsx file.");
+      setErrorMsg('Please select a file to upload.');
       return;
     }
     if (!selectedInst) {
-      setErrorMsg("Please select a valid institution.");
+      setErrorMsg('Please select target institution.');
       return;
     }
 
     try {
       setUploading(true);
-      setErrorMsg("");
+      setErrorMsg('');
       const res = await api.uploadStudentsFile(selectedInst, file);
-      setUploadResult(res);
+      setBatchResult(res);
+
+      // Fetch row-level validation issues
+      if (res.id) {
+        try {
+          const results = await api.getUploadBatchResults(res.id);
+          setRowResults(results);
+        } catch (fetchErr) {
+          console.warn('Could not retrieve row results:', fetchErr);
+        }
+      }
     } catch (err: any) {
-      setErrorMsg(err.message);
+      setErrorMsg(err.message || 'File processing failed. Please verify column headers.');
     } finally {
       setUploading(false);
     }
   };
 
-  // Helper to trigger sample CSV downloads
-  const downloadSampleCsv = (withAnomalies: boolean = false) => {
-    let csvContent = "apaar_id,student_id,name,program_code,seat_category,supernumerary_classification,academic_year,admission_date\n";
-    if (withAnomalies) {
-      // Row 1: Valid
-      csvContent += "984210573915,24/CSE/901,Karan Johar,CSE-BTECH,REGULAR,NONE,2024-25,2024-08-01\n";
-      // Row 2: Invalid Checksum
-      csvContent += "111222333444,24/CSE/902,Bad Checksum Student,CSE-BTECH,REGULAR,NONE,2024-25,2024-08-01\n";
-      // Row 3: Missing APAAR
-      csvContent += ",24/CSE/903,Missing APAAR Student,CSE-BTECH,REGULAR,NONE,2024-25,2024-08-01\n";
-      // Row 4: Duplicate collision candidate
-      csvContent += "883920194835,24/CSE/904,Sameer Verma Duplicate,CSE-BTECH,REGULAR,NONE,2024-25,2024-08-01\n";
-    } else {
-      csvContent += "984210573915,24/CSE/701,Rohan Kulkarni,CSE-BTECH,REGULAR,NONE,2024-25,2024-08-01\n";
-      csvContent += "384910293847,24/CSE/702,Tanvi Deshmukh,CSE-BTECH,TFW,TFW,2024-25,2024-08-01\n";
-      csvContent += "748392019284,24/CSE/703,Ananya Pillai,CSE-BTECH,EWS,EWS,2024-25,2024-08-01\n";
-    }
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.setAttribute("download", withAnomalies ? "sample_with_anomalies.csv" : "sample_students_valid.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleDownloadTemplate = () => {
+    const csvContent =
+      'apaar_id,student_id,name,program_code,seat_category,supernumerary_classification,academic_year,admission_date\n' +
+      '984210573915,24/CSE/001,Aarav Sharma,CSE-101,REGULAR,NONE,2024-25,2024-08-01\n' +
+      '883920194835,24/ECE/042,Isha Verma,ECE-101,REGULAR,TFW,2024-25,2024-08-01\n';
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'aicte_student_upload_template.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
   };
 
+  const handleDownloadErrorCsv = async () => {
+    if (!batchResult) return;
+    try {
+      await api.downloadErrorCsv(batchResult.id);
+    } catch (err: any) {
+      alert(`Download error: ${err.message}`);
+    }
+  };
+
+  const errorRows = rowResults
+    .filter(r => r.status === 'ERROR')
+    .map(r => [
+      <span className="mono">{r.row_number}</span>,
+      <span className="mono">APAAR / Intake</span>,
+      <span>{r.error_message || 'Verification failure'}</span>,
+      <Badge tone="red">Error</Badge>
+    ]);
+
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-            <UploadCloud className="w-5 h-5 text-blue-600" />
-            <span>Bulk Student Data Ingestion Hub</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Automated batch ingestion pipeline with Verhoeff parity mathematical audit, schema integrity checks, and immediate duplicate detection.
-          </p>
+    <Shell
+      active="upload"
+      user={user}
+      onNavigate={onNavigateTab}
+      onLogout={onLogout}
+      onSwitchPersona={onSwitchPersona}
+    >
+      <Head
+        eyebrow="Data entry"
+        title="Bulk upload"
+        sub="Import student enrolment rosters from CSV or Excel with automated Verhoeff and quota cap validation."
+      >
+        <button
+          type="button"
+          onClick={handleDownloadTemplate}
+          className="btn"
+        >
+          Download template
+        </button>
+      </Head>
+
+      {errorMsg && <ErrorState error={errorMsg} />}
+
+      <Card>
+        {/* Step Indicators */}
+        <div className="row" style={{ marginBottom: 20 }}>
+          <Badge tone={file ? 'green' : 'sky'}>1 Select file</Badge>
+          <Badge tone={uploading ? 'amber' : batchResult ? 'green' : 'sky'}>2 Process batch</Badge>
+          <Badge tone={batchResult ? 'green' : 'sky'}>3 Validation report</Badge>
         </div>
 
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => downloadSampleCsv(false)}
-            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center space-x-1.5 border border-slate-300"
-          >
-            <Download className="w-3.5 h-3.5 text-blue-600" />
-            <span>Valid Sample CSV</span>
-          </button>
-          <button
-            onClick={() => downloadSampleCsv(true)}
-            className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-lg text-xs font-semibold flex items-center space-x-1.5 border border-amber-300"
-          >
-            <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-            <span>Anomaly Test CSV</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Main Upload Zone */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5">
-          <form onSubmit={handleUploadSubmit} className="space-y-4">
-            {errorMsg && (
-              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-lg flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4" />
-                <span>{errorMsg}</span>
-              </div>
-            )}
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Target Institution
-              </label>
+        {/* Institution Target Selector */}
+        {user?.role === 'AICTE_ADMIN' && institutions.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <label className="field">
+              <span>Target Institution</span>
               <select
                 value={selectedInst}
-                onChange={(e) => setSelectedInst(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={e => setSelectedInst(e.target.value)}
+                style={{ maxWidth: 360 }}
               >
-                {institutions.map(i => (
-                  <option key={i.id} value={i.id}>
-                    {i.name} ({i.official_code})
+                {institutions.map(inst => (
+                  <option key={inst.id} value={inst.id}>
+                    {inst.name} ({inst.official_code})
                   </option>
                 ))}
               </select>
-            </div>
-
-            {/* Drag and Drop Zone */}
-            <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-blue-500 transition-colors bg-slate-50/50">
-              <FileSpreadsheet className="w-10 h-10 text-slate-400 mx-auto mb-2" />
-              <div className="text-xs font-semibold text-slate-700 mb-1">
-                Choose CSV or Excel Spreadsheet (.csv, .xlsx)
-              </div>
-              <p className="text-[11px] text-slate-500 mb-4">
-                Maximum file size: 15MB. Formatted with mandatory headers: apaar_id, student_id, name, program_code.
-              </p>
-              <input
-                type="file"
-                accept=".csv, .xlsx"
-                onChange={handleFileChange}
-                className="text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-500 cursor-pointer"
-              />
-              {file && (
-                <div className="mt-3 text-xs font-medium text-blue-700 flex items-center justify-center gap-1">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <span>Selected: {file.name} ({(file.size / 1024).toFixed(1)} KB)</span>
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-end">
-              <button
-                type="submit"
-                disabled={uploading || !file}
-                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold shadow-md flex items-center space-x-2 disabled:opacity-50 transition-all"
-              >
-                {uploading ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Processing & Validating Batch...</span>
-                  </>
-                ) : (
-                  <>
-                    <UploadCloud className="w-4 h-4" />
-                    <span>Upload & Ingest Into AICTE Gateway</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
-        </div>
-
-        {/* Upload Instruction Guide */}
-        <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-4 text-xs">
-          <h3 className="font-bold text-slate-800 text-sm">Mandatory Schema Norms</h3>
-          <ul className="space-y-2 text-slate-600 leading-relaxed list-disc list-inside">
-            <li><strong className="text-slate-800">apaar_id</strong>: 12 digits, validated against national Verhoeff parity algorithm.</li>
-            <li><strong className="text-slate-800">student_id</strong>: Institutional roll number (e.g. 24/CSE/001).</li>
-            <li><strong className="text-slate-800">name</strong>: Full legal name matching DigiLocker / ABC account.</li>
-            <li><strong className="text-slate-800">program_code</strong>: Valid approved AICTE program code under this institution.</li>
-            <li><strong className="text-slate-800">supernumerary_classification</strong>: NONE, TFW, EWS, NRI, FN_OCI, PMSSS.</li>
-          </ul>
-
-          <div className="p-3 bg-blue-50 rounded-lg border border-blue-200 text-blue-800 text-[11px] leading-relaxed">
-            💡 <strong>Smart Fraud Check:</strong> The gateway performs immediate cross-institution lookup. If any student is already actively admitted in another college, a critical collision alert will be generated automatically.
+            </label>
           </div>
-        </div>
-      </div>
+        )}
 
-      {/* Upload Results Summary Card */}
-      {uploadResult && (
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-md space-y-4 animate-in fade-in duration-300">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-            <div className="flex items-center space-x-2">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-              <h2 className="text-base font-bold text-slate-800">
-                Batch Processing Completed: {uploadResult.file_name}
-              </h2>
-            </div>
-            <span className="text-xs font-mono text-slate-500">ID: {uploadResult.id}</span>
-          </div>
+        {/* Drag and Drop Zone */}
+        <div
+          className="drop"
+          onDragOver={e => {
+            e.preventDefault();
+            setIsDragOver(true);
+          }}
+          onDragLeave={() => setIsDragOver(false)}
+          onDrop={handleDrop}
+          style={{
+            borderColor: isDragOver ? 'var(--blue)' : file ? '#047857' : '#94A3B8',
+            background: isDragOver ? '#EFF6FF' : file ? '#F0FDF4' : '#fff'
+          }}
+        >
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={e => e.target.files && handleFileSelect(e.target.files[0])}
+            accept=".csv,.xlsx"
+            style={{ display: 'none' }}
+          />
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-              <span className="text-xs text-slate-500">Total Rows</span>
-              <div className="text-xl font-bold text-slate-800 mt-1">{uploadResult.total_rows}</div>
-            </div>
-            <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-200">
-              <span className="text-xs text-emerald-700">Successfully Ingested</span>
-              <div className="text-xl font-bold text-emerald-700 mt-1">{uploadResult.successful_rows}</div>
-            </div>
-            <div className="bg-rose-50 p-4 rounded-xl border border-rose-200">
-              <span className="text-xs text-rose-700">Validation Failures</span>
-              <div className="text-xl font-bold text-rose-700 mt-1">{uploadResult.failed_rows}</div>
-            </div>
-            <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 flex flex-col justify-center items-start">
-              {uploadResult.failed_rows > 0 ? (
-                <a
-                  href={api.getUploadErrorsDownloadUrl(uploadResult.id)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded text-xs font-semibold flex items-center gap-1 shadow-sm"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Download Error CSV</span>
-                </a>
-              ) : (
-                <span className="text-xs text-emerald-700 font-semibold">✓ 100% Clean Ingestion</span>
-              )}
-            </div>
-          </div>
+          <h2>{file ? file.name : 'Drag and drop your file here'}</h2>
+          <p className="sub">
+            {file ? `${(file.size / 1024).toFixed(1)} KB • Ready to submit` : '.csv, .xlsx up to 15 MB'}
+          </p>
 
-          <div className="pt-2 flex justify-end space-x-3">
+          <div className="row" style={{ justifyContent: 'center', marginTop: 14, gap: 10 }}>
             <button
-              onClick={() => onNavigateTab("student-registry")}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold flex items-center space-x-1"
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="btn"
+              disabled={uploading}
             >
-              <span>View Admitted Students in Registry</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              {file ? 'Change file' : 'Choose file'}
             </button>
+
+            {file && (
+              <button
+                type="button"
+                onClick={handleUploadSubmit}
+                className="btn pri"
+                disabled={uploading}
+              >
+                {uploading ? 'Validating records...' : 'Submit & Ingest'}
+              </button>
+            )}
           </div>
         </div>
+      </Card>
+
+      {/* Batch Ingestion Results KPIs */}
+      {batchResult && (
+        <>
+          <div className="grid" style={{ marginTop: 16 }}>
+            <Kpi
+              label="Valid rows"
+              value={batchResult.successful_rows.toLocaleString('en-IN')}
+              note={<Badge tone="green">Ingested</Badge>}
+            />
+            <Kpi
+              label="Errors"
+              value={batchResult.failed_rows.toLocaleString('en-IN')}
+              note={
+                batchResult.failed_rows > 0 ? (
+                  <Badge tone="red">Rejected</Badge>
+                ) : (
+                  <Badge tone="green">0 Errors</Badge>
+                )
+              }
+            />
+            <Kpi
+              label="Total processed"
+              value={batchResult.total_rows.toLocaleString('en-IN')}
+              note={<span className="sub">Batch ID: {batchResult.id.slice(0, 8)}</span>}
+            />
+          </div>
+
+          {batchResult.failed_rows > 0 && (
+            <Card title="Row-level issues" style={{ marginTop: 16 }}>
+              {errorRows.length > 0 ? (
+                <Table
+                  head={['Row', 'Field', 'Issue', 'Level']}
+                  rows={errorRows}
+                />
+              ) : (
+                <p className="sub">
+                  Validation issues recorded during processing. Check detailed error log below.
+                </p>
+              )}
+
+              <div className="row" style={{ marginTop: 16, justifyContent: 'space-between' }}>
+                <button
+                  type="button"
+                  onClick={handleDownloadErrorCsv}
+                  className="btn"
+                >
+                  Download error CSV
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onNavigateTab && onNavigateTab('registry')}
+                  className="btn pri"
+                >
+                  View in Student Registry
+                </button>
+              </div>
+            </Card>
+          )}
+        </>
       )}
-    </div>
+    </Shell>
   );
 };
+
+export default BulkUploadWizard;

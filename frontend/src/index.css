@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./apaar.css";
 
 :root {
   --primary-navy: #0B192C;

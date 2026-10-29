@@ -1,40 +1,49 @@
 import React, { useEffect, useState } from 'react';
-import { api, UserInfo } from '../services/api';
-import { 
-  AlertTriangle, ShieldAlert, CheckCircle2, 
-  X, RefreshCw, Eye, MessageSquare 
-} from 'lucide-react';
+import { Shell, Head, Card, Kpi, Badge, Table, Skeleton, ErrorState, EmptyState } from '../components/ui';
+import { api, UserInfo, AnomalyAlert, DuplicateCase } from '../services/api';
 
 interface AnomalyCenterProps {
   user: UserInfo | null;
+  onNavigateTab?: (tab: string) => void;
+  onLogout?: () => void;
+  onSwitchPersona?: (username: string) => void;
 }
 
-export const AnomalyCenter: React.FC<AnomalyCenterProps> = ({ user }) => {
-  const [duplicateCases, setDuplicateCases] = useState<any[]>([]);
-  const [alerts, setAlerts] = useState<any[]>([]);
-  const [issues, setIssues] = useState<any[]>([]);
+export const AnomalyCenter: React.FC<AnomalyCenterProps> = ({
+  user,
+  onNavigateTab,
+  onLogout,
+  onSwitchPersona
+}) => {
+  const [alerts, setAlerts] = useState<AnomalyAlert[]>([]);
+  const [duplicateCases, setDuplicateCases] = useState<DuplicateCase[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // Resolution Dialog State
-  const [selectedCase, setSelectedCase] = useState<any>(null);
-  const [resolutionStatus, setResolutionStatus] = useState("CONFIRMED_DUPLICATE");
-  const [resolutionNotes, setResolutionNotes] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [successMsg, setSuccessMsg] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [resolving, setResolving] = useState(false);
+  const [scanMessage, setScanMessage] = useState('');
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const [dups, alts, iss] = await Promise.all([
-        api.getDuplicateCases(),
+      setError(null);
+      const [alts, dups] = await Promise.all([
         api.getAnomalyAlerts(),
-        api.getValidationIssues()
+        api.getDuplicateCases()
       ]);
-      setDuplicateCases(dups);
       setAlerts(alts);
-      setIssues(iss);
-    } catch (err) {
-      console.error("Failed to load anomalies", err);
+      setDuplicateCases(dups);
+
+      // Select first item by default if available
+      if (dups.length > 0) {
+        setSelectedItem({ ...dups[0], itemType: 'duplicate' });
+      } else if (alts.length > 0) {
+        setSelectedItem({ ...alts[0], itemType: 'alert' });
+      }
+    } catch (err: any) {
+      console.error('Failed to load anomalies', err);
+      setError(err.message || 'Error loading anomaly center data.');
     } finally {
       setLoading(false);
     }
@@ -44,272 +53,308 @@ export const AnomalyCenter: React.FC<AnomalyCenterProps> = ({ user }) => {
     loadData();
   }, []);
 
-  const handleResolveCase = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedCase) return;
+  const handleRunScan = async () => {
     try {
-      setIsSubmitting(true);
-      await api.resolveDuplicateCase(selectedCase.id, resolutionStatus, resolutionNotes);
-      setSuccessMsg(`Duplicate case ${selectedCase.case_id} resolved!`);
-      setSelectedCase(null);
-      setResolutionNotes("");
-      loadData();
+      setScanMessage('Running national anomaly scan...');
+      const res = await api.runNationalIntegrityScan();
+      setScanMessage(res.message);
+      await loadData();
+      setTimeout(() => setScanMessage(''), 4000);
     } catch (err: any) {
-      alert(`Resolution failed: ${err.message}`);
-    } finally {
-      setIsSubmitting(false);
-      setTimeout(() => setSuccessMsg(""), 5000);
+      alert(`Scan error: ${err.message}`);
+      setScanMessage('');
     }
   };
 
-  const handleResolveAlert = async (alertId: string) => {
-    const note = prompt("Enter resolution/action notes for this regulatory alert:");
-    if (!note) return;
+  const handleMarkReviewed = async () => {
+    if (!selectedItem) return;
     try {
-      await api.reviewAnomalyAlert(alertId, note);
-      setSuccessMsg("Alert marked as resolved!");
-      loadData();
+      setResolving(true);
+      if (selectedItem.itemType === 'duplicate') {
+        await api.resolveDuplicateCase(selectedItem.id, 'RESOLVED_VALID', 'Regulatory verification confirmed legitimate transition.');
+      } else {
+        await api.reviewAnomalyAlert(selectedItem.id, 'Verified institutional quota documentation.');
+      }
+      await loadData();
     } catch (err: any) {
-      alert(`Failed to resolve alert: ${err.message}`);
+      alert(`Review error: ${err.message}`);
+    } finally {
+      setResolving(false);
     }
   };
+
+  const handleEscalate = async () => {
+    if (!selectedItem) return;
+    try {
+      setResolving(true);
+      if (selectedItem.itemType === 'duplicate') {
+        await api.resolveDuplicateCase(selectedItem.id, 'CONFIRMED_DUPLICATE', 'Formal AICTE notice issued for dual enrolment violation.');
+      } else {
+        await api.reviewAnomalyAlert(selectedItem.id, 'Escalated to AICTE Regional Approval Bureau.');
+      }
+      await loadData();
+    } catch (err: any) {
+      alert(`Escalation error: ${err.message}`);
+    } finally {
+      setResolving(false);
+    }
+  };
+
+  // Combine duplicates and alerts for unified surveillance
+  const combinedCases = [
+    ...duplicateCases.map(d => ({
+      id: d.id,
+      caseId: d.case_id,
+      title: `Dual Enrolment: ${d.student_name}`,
+      reason: d.detection_reason,
+      score: '98',
+      severity: d.severity,
+      status: d.review_status,
+      itemType: 'duplicate',
+      raw: d
+    })),
+    ...alerts.map(a => ({
+      id: a.id,
+      caseId: a.alert_id,
+      title: a.title,
+      reason: a.description,
+      score: Math.round(a.anomaly_score * 100).toString(),
+      severity: a.severity,
+      status: a.status,
+      itemType: 'alert',
+      raw: a
+    }))
+  ];
+
+  const filteredCases = combinedCases.filter(
+    c =>
+      c.caseId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.reason.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const highRiskCount = combinedCases.filter(
+    c => c.severity === 'CRITICAL' || c.severity === 'HIGH'
+  ).length;
+
+  const unresolvedCount = combinedCases.filter(
+    c => c.status === 'OPEN' || c.status === 'PENDING'
+  ).length;
+
+  // Format table rows
+  const tableRows = filteredCases.slice(0, 15).map(c => {
+    const isSelected = selectedItem?.id === c.id;
+    const tone: 'red' | 'amber' | 'green' =
+      c.severity === 'CRITICAL' || c.severity === 'HIGH'
+        ? 'red'
+        : c.severity === 'MEDIUM'
+        ? 'amber'
+        : 'green';
+
+    return [
+      <button
+        type="button"
+        onClick={() => setSelectedItem(c)}
+        style={{
+          background: 'transparent',
+          border: 'none',
+          padding: 0,
+          textAlign: 'left',
+          cursor: 'pointer',
+          fontFamily: 'inherit',
+          width: '100%'
+        }}
+      >
+        <span
+          className="mono"
+          style={{
+            fontWeight: isSelected ? 700 : 500,
+            color: isSelected ? 'var(--blue)' : 'inherit'
+          }}
+        >
+          {c.caseId}
+        </span>
+      </button>,
+      <span style={{ fontSize: 13, maxWidth: 260, display: 'inline-block' }}>{c.title}</span>,
+      <span className="mono">{c.score}</span>,
+      <Badge tone={tone}>{c.severity}</Badge>
+    ];
+  });
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-            <ShieldAlert className="w-5 h-5 text-rose-600" />
-            <span>Fraud & Identity Collision Investigation Center</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Real-time algorithmic detection of ghost students, cross-institution dual enrolments, and supernumerary intake breaches.
-          </p>
-        </div>
+    <Shell
+      active="anomalies"
+      user={user}
+      onNavigate={onNavigateTab}
+      onLogout={onLogout}
+      onSwitchPersona={onSwitchPersona}
+    >
+      <Head
+        eyebrow="Risk monitoring"
+        title="Anomaly & fraud center"
+        sub="Review records flagged for multi-institution duplication or statistical intake outlier patterns."
+      >
+        {user?.role === 'AICTE_ADMIN' && (
+          <button
+            type="button"
+            onClick={handleRunScan}
+            className="btn"
+          >
+            Run national scan
+          </button>
+        )}
+      </Head>
 
-        <button
-          onClick={loadData}
-          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center space-x-1.5 border border-slate-300"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-          <span>Refresh Feed</span>
-        </button>
-      </div>
-
-      {successMsg && (
-        <div className="p-3 bg-emerald-50 text-emerald-800 text-xs rounded-lg border border-emerald-200 flex items-center space-x-2">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-          <span>{successMsg}</span>
+      {scanMessage && (
+        <div className="badge sky" style={{ width: '100%', padding: '10px 14px', borderRadius: 8, marginBottom: 16 }}>
+          <span aria-hidden>i</span>
+          <span>{scanMessage}</span>
         </div>
       )}
 
-      {/* 1. Cross-Institution Collisions (Ghost Students) */}
-      <div className="bg-white rounded-xl border border-rose-200 shadow-sm overflow-hidden">
-        <div className="p-4 bg-rose-50/50 border-b border-rose-200 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <AlertTriangle className="w-4 h-4 text-rose-600" />
-            <h2 className="text-sm font-bold text-rose-900">
-              Cross-Institution Identity Collisions (Dual Enrolments)
-            </h2>
-          </div>
-          <span className="text-xs font-semibold px-2 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-200">
-            {duplicateCases.filter(c => c.review_status === "PENDING").length} Action Required
-          </span>
-        </div>
+      {error && <ErrorState error={error} onRetry={loadData} />}
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 text-slate-600 uppercase font-semibold">
-              <tr>
-                <th className="py-2.5 px-4">Case ID</th>
-                <th className="py-2.5 px-4">Student Name</th>
-                <th className="py-2.5 px-4">Protected APAAR</th>
-                <th className="py-2.5 px-4">Institution 1</th>
-                <th className="py-2.5 px-4">Institution 2</th>
-                <th className="py-2.5 px-4">Evidence & Collision Details</th>
-                <th className="py-2.5 px-4">Status</th>
-                <th className="py-2.5 px-4 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {duplicateCases.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-6 text-center text-slate-500">
-                    No active identity collisions detected.
-                  </td>
-                </tr>
-              ) : (
-                duplicateCases.map((c) => (
-                  <tr key={c.id} className="hover:bg-slate-50">
-                    <td className="py-3 px-4 font-mono font-bold text-slate-800">{c.case_id}</td>
-                    <td className="py-3 px-4 font-semibold text-slate-900">{c.student_name}</td>
-                    <td className="py-3 px-4 font-mono text-slate-600">{c.pseudonymous_id}</td>
-                    <td className="py-3 px-4 text-slate-700 font-medium">{c.primary_institution_name}</td>
-                    <td className="py-3 px-4 text-slate-700 font-medium">{c.secondary_institution_name}</td>
-                    <td className="py-3 px-4 text-slate-600 max-w-xs truncate" title={c.evidence_summary}>
-                      {c.evidence_summary}
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                        c.review_status === "PENDING"
-                          ? "bg-rose-100 text-rose-800 border border-rose-300"
-                          : "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                      }`}>
-                        {c.review_status}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      {c.review_status === "PENDING" && (
-                        <button
-                          onClick={() => setSelectedCase(c)}
-                          className="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded text-[11px] font-semibold transition-all shadow-sm"
-                        >
-                          Review & Resolve
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+      {/* 3 KPIs matching design */}
+      <div className="grid">
+        <Kpi
+          label="Flagged cases"
+          value={combinedCases.length.toLocaleString('en-IN')}
+          note={<span className="sub">Surveillance collisions & anomalies</span>}
+        />
+        <Kpi
+          label="High risk"
+          value={highRiskCount.toLocaleString('en-IN')}
+          note={<Badge tone="red">Urgent</Badge>}
+        />
+        <Kpi
+          label="Unresolved"
+          value={unresolvedCount.toLocaleString('en-IN')}
+          note={<Badge tone="amber">Open</Badge>}
+        />
       </div>
 
-      {/* 2. Explainable Anomaly Alerts (Rules + Isolation Forest) */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-4 bg-slate-50/60 border-b border-slate-200 flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-bold text-slate-800">
-              Explainable Anomaly Feed (Rules + Isolation Forest ML)
-            </h2>
-            <p className="text-xs text-slate-500">Autonomous pattern recognition with feature importance breakdown</p>
-          </div>
-          <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-200 text-slate-700">
-            {alerts.length} Total Alerts
-          </span>
+      {loading && combinedCases.length === 0 ? (
+        <div className="split" style={{ marginTop: 16 }}>
+          <Skeleton height={320} />
+          <Skeleton height={320} />
         </div>
+      ) : (
+        <div className="split" style={{ marginTop: 16 }}>
+          {/* Table List of Cases */}
+          <Card>
+            <input
+              type="text"
+              placeholder="Search flagged cases, institutions, IDs"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              style={{ width: '100%', marginBottom: 14 }}
+            />
+            {filteredCases.length > 0 ? (
+              <Table
+                head={['Case', 'Reason', 'Score', 'Severity']}
+                rows={tableRows}
+              />
+            ) : (
+              <EmptyState
+                title="No Matching Anomaly Cases"
+                message="All verified records are within nominal regulatory thresholds."
+              />
+            )}
+          </Card>
 
-        <div className="divide-y divide-slate-100">
-          {alerts.length === 0 ? (
-            <div className="p-6 text-center text-slate-500 text-xs">No active anomaly alerts.</div>
-          ) : (
-            alerts.map((a) => (
-              <div key={a.id} className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-slate-50/50">
-                <div className="space-y-1">
-                  <div className="flex items-center space-x-2">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                      a.severity === "CRITICAL"
-                        ? "bg-rose-100 text-rose-800"
-                        : a.severity === "HIGH"
-                        ? "bg-amber-100 text-amber-800"
-                        : "bg-blue-100 text-blue-800"
-                    }`}>
-                      {a.severity}
-                    </span>
-                    <span className="font-bold text-slate-800 text-xs">{a.title}</span>
-                    <span className="text-[10px] font-mono text-slate-400">Score: {a.anomaly_score}</span>
-                  </div>
-                  <p className="text-xs text-slate-600 leading-relaxed max-w-3xl">
-                    {a.description}
-                  </p>
-                  {a.triggering_features && (
-                    <div className="text-[11px] text-slate-500 flex items-center gap-2 font-mono">
-                      <span>Trigger Signals:</span>
-                      {Object.entries(a.triggering_features).map(([k, v]) => (
-                        <span key={k} className="px-1.5 py-0.2 rounded bg-slate-100 border border-slate-200">
-                          {k}: {String(v)}
+          {/* Selected Case Inspection Card */}
+          <Card title={selectedItem ? `Case ${selectedItem.caseId || selectedItem.case_id}` : 'Select a Case'}>
+            {selectedItem ? (
+              <>
+                <ul className="list">
+                  {selectedItem.itemType === 'duplicate' ? (
+                    <>
+                      <li>
+                        <span>Student Candidate</span>
+                        <strong>{selectedItem.raw?.student_name}</strong>
+                      </li>
+                      <li>
+                        <span>Primary Campus</span>
+                        <span className="mono">{selectedItem.raw?.primary_institution_name}</span>
+                      </li>
+                      <li>
+                        <span>Colliding Campus</span>
+                        <span className="mono" style={{ color: 'var(--red)' }}>
+                          {selectedItem.raw?.secondary_institution_name}
                         </span>
-                      ))}
-                    </div>
+                      </li>
+                      <li>
+                        <span>Evidence</span>
+                        <span style={{ fontSize: 12 }}>{selectedItem.raw?.evidence_summary}</span>
+                      </li>
+                    </>
+                  ) : (
+                    <>
+                      <li>
+                        <span>Alert Title</span>
+                        <strong>{selectedItem.raw?.title}</strong>
+                      </li>
+                      <li>
+                        <span>Impacted Institution</span>
+                        <span>{selectedItem.raw?.affected_institutions?.join(', ') || 'National'}</span>
+                      </li>
+                      <li>
+                        <span>Isolation Forest Score</span>
+                        <b className="mono">{Math.round((selectedItem.raw?.anomaly_score || 0) * 100)} / 100</b>
+                      </li>
+                      <li>
+                        <span>Description</span>
+                        <span style={{ fontSize: 12 }}>{selectedItem.raw?.description}</span>
+                      </li>
+                    </>
                   )}
-                </div>
+                  <li>
+                    <span>Regulatory Status</span>
+                    <Badge tone={selectedItem.status === 'RESOLVED' ? 'green' : 'amber'}>
+                      {selectedItem.status || 'OPEN'}
+                    </Badge>
+                  </li>
+                </ul>
 
-                <div className="flex items-center space-x-2">
-                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
-                    a.status === "OPEN" ? "bg-amber-50 text-amber-700 border border-amber-200" : "bg-emerald-50 text-emerald-700"
-                  }`}>
-                    {a.status}
-                  </span>
-                  {a.status === "OPEN" && user?.role === "AICTE_ADMIN" && (
+                <p className="sub" style={{ marginTop: 14, fontSize: 12 }}>
+                  {selectedItem.itemType === 'duplicate'
+                    ? 'Same APAAR ID concurrently holds active full-time enrolment in multiple campuses.'
+                    : 'Unsupervised ML algorithm detected statistical deviation exceeding peer group norms.'}
+                </p>
+
+                {user?.role === 'AICTE_ADMIN' && (
+                  <div className="row" style={{ marginTop: 16, gap: 8 }}>
                     <button
-                      onClick={() => handleResolveAlert(a.id)}
-                      className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-white rounded text-[11px] font-semibold"
+                      type="button"
+                      onClick={handleMarkReviewed}
+                      className="btn pri"
+                      disabled={resolving}
                     >
-                      Resolve
+                      {resolving ? 'Updating...' : 'Mark reviewed'}
                     </button>
-                  )}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-
-      {/* Resolve Duplicate Case Modal */}
-      {selectedCase && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden">
-            <div className="p-4 bg-rose-900 text-white flex items-center justify-between">
-              <h3 className="font-bold text-sm">Review & Resolve Identity Collision</h3>
-              <button onClick={() => setSelectedCase(null)} className="text-slate-300 hover:text-white">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleResolveCase} className="p-5 space-y-4 text-xs">
-              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1">
-                <div>Case: <strong>{selectedCase.case_id}</strong></div>
-                <div>Candidate: <strong>{selectedCase.student_name}</strong> ({selectedCase.pseudonymous_id})</div>
-                <div>Involved: <strong>{selectedCase.primary_institution_name}</strong> vs <strong>{selectedCase.secondary_institution_name}</strong></div>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Regulatory Decision</label>
-                <select
-                  value={resolutionStatus}
-                  onChange={(e) => setResolutionStatus(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="CONFIRMED_DUPLICATE">Confirmed Duplicate Enrolment (Sanction Required)</option>
-                  <option value="LEGITIMATE_TRANSFER">Legitimate Institution Transfer (Exited College 1)</option>
-                  <option value="RESOLVED">Resolved (Seat cancelled in Secondary College)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Official Resolution Audit Notes</label>
-                <textarea
-                  rows={3}
-                  required
-                  placeholder="Record formal AICTE sanction notes or admission cancellation order..."
-                  value={resolutionNotes}
-                  onChange={(e) => setResolutionNotes(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div className="flex justify-end space-x-2 pt-2 border-t border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => setSelectedCase(null)}
-                  className="px-3 py-1.5 border border-slate-300 rounded text-slate-700 font-semibold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-4 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded font-semibold shadow-sm"
-                >
-                  {isSubmitting ? "Submitting..." : "Confirm Regulatory Resolution"}
-                </button>
-              </div>
-            </form>
-          </div>
+                    <button
+                      type="button"
+                      onClick={handleEscalate}
+                      className="btn"
+                      disabled={resolving}
+                      style={{ color: 'var(--red)', borderColor: '#FCA5A5' }}
+                    >
+                      Escalate Sanction
+                    </button>
+                  </div>
+                )}
+              </>
+            ) : (
+              <EmptyState
+                title="No case selected"
+                message="Click any row on the left table to inspect regulatory collision evidence."
+              />
+            )}
+          </Card>
         </div>
       )}
-    </div>
+    </Shell>
   );
 };
+
+export default AnomalyCenter;

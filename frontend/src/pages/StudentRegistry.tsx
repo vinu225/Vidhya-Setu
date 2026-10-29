@@ -1,81 +1,100 @@
 import React, { useEffect, useState } from 'react';
-import { api, UserInfo } from '../services/api';
-import { 
-  Users, Search, UserPlus, Filter, ShieldCheck, 
-  Award, CheckCircle2, AlertTriangle, FileText, X, Printer
-} from 'lucide-react';
+import { Shell, Head, Card, Badge, Table, Skeleton, ErrorState, EmptyState } from '../components/ui';
+import { api, UserInfo, Student, Institution, Program } from '../services/api';
 import { QRCodeSVG } from 'qrcode.react';
 
 interface StudentRegistryProps {
-  user: UserInfo | null;
-  piiMasked: boolean;
+  user?: UserInfo | null;
+  piiMasked?: boolean;
+  onNavigateTab?: (tab: string) => void;
+  onLogout?: () => void;
+  onSwitchPersona?: (username: string) => void;
 }
 
-export const StudentRegistry: React.FC<StudentRegistryProps> = ({ user, piiMasked }) => {
-  const [students, setStudents] = useState<any[]>([]);
-  const [institutions, setInstitutions] = useState<any[]>([]);
-  const [programs, setPrograms] = useState<any[]>([]);
+export const StudentRegistry: React.FC<StudentRegistryProps> = ({
+  user,
+  piiMasked = true,
+  onNavigateTab,
+  onLogout,
+  onSwitchPersona
+}) => {
+  const [students, setStudents] = useState<Student[]>([]);
+  const [institutions, setInstitutions] = useState<Institution[]>([]);
+  const [programs, setPrograms] = useState<Program[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedInst, setSelectedInst] = useState(user?.institution_id || "");
-  const [selectedProg, setSelectedProg] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  // Filters & Pagination
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedInst, setSelectedInst] = useState(user?.institution_id || '');
+  const [selectedProg, setSelectedProg] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState('ALL');
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(1);
+  const PAGE_SIZE = 15;
 
-  // Modals
-  const [showAdmitModal, setShowAdmitModal] = useState(false);
-  const [showCertModal, setShowCertModal] = useState(false);
-  const [activeCertStudent, setActiveCertStudent] = useState<any>(null);
-  const [actionMsg, setActionMsg] = useState("");
+  // View / Credential Modal
+  const [activeStudent, setActiveStudent] = useState<Student | null>(null);
 
-  // New Student Form State
-  const [newApaar, setNewApaar] = useState("");
-  const [newRoll, setNewRoll] = useState("");
-  const [newName, setNewName] = useState("");
-  const [newInst, setNewInst] = useState(user?.institution_id || "");
-  const [newProg, setNewProg] = useState("");
-  const [newCategory, setNewCategory] = useState("General");
-  const [newSupernumerary, setNewSupernumerary] = useState("NONE");
-  const [formError, setFormError] = useState("");
+  // Add Record Modal
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newApaar, setNewApaar] = useState('');
+  const [newRoll, setNewRoll] = useState('');
+  const [newName, setNewName] = useState('');
+  const [newInst, setNewInst] = useState(user?.institution_id || '');
+  const [newProg, setNewProg] = useState('');
+  const [newCategory, setNewCategory] = useState('General');
+  const [newSupernumerary, setNewSupernumerary] = useState('NONE');
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+
+  // Initial load: institutions & programs
+  useEffect(() => {
+    const loadMetadata = async () => {
+      try {
+        const [insts, progs] = await Promise.all([
+          api.getInstitutions(),
+          api.getPrograms(user?.institution_id || undefined)
+        ]);
+        setInstitutions(insts);
+        setPrograms(progs);
+        if (user?.institution_id) {
+          setSelectedInst(user.institution_id);
+          setNewInst(user.institution_id);
+        }
+      } catch (err: any) {
+        console.error('Failed to load institutions metadata', err);
+      }
+    };
+    loadMetadata();
+  }, [user]);
 
   const loadStudents = async () => {
     try {
       setLoading(true);
+      setError(null);
       const res = await api.getStudents({
         institution_id: selectedInst || undefined,
         program_id: selectedProg || undefined,
-        search: searchTerm || undefined,
-        skip: (page - 1) * 25,
-        limit: 25
+        status: selectedStatus === 'ALL' ? undefined : selectedStatus,
+        search: searchTerm.trim() || undefined,
+        skip: (page - 1) * PAGE_SIZE,
+        limit: PAGE_SIZE
       });
       setStudents(res.items || []);
       setTotalCount(res.total || 0);
     } catch (err: any) {
-      console.error("Failed to load students", err);
+      console.error('Failed to load students', err);
+      setError(err.message || 'Error loading student registry.');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    const fetchMeta = async () => {
-      try {
-        const [insts, progs] = await Promise.all([
-          api.getInstitutions(),
-          api.getPrograms()
-        ]);
-        setInstitutions(insts);
-        setPrograms(progs);
-      } catch (err) {
-        console.error("Failed to load metadata", err);
-      }
-    };
-    fetchMeta();
-  }, []);
-
-  useEffect(() => {
     loadStudents();
-  }, [selectedInst, selectedProg, page]);
+  }, [selectedInst, selectedProg, selectedStatus, page]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,483 +102,401 @@ export const StudentRegistry: React.FC<StudentRegistryProps> = ({ user, piiMaske
     loadStudents();
   };
 
-  const handleAdmitStudent = async (e: React.FormEvent) => {
+  const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setFormError("");
+    setFormError('');
+    setSuccessMsg('');
+
+    if (!newApaar || !newRoll || !newName || !newInst || !newProg) {
+      setFormError('Please fill in all mandatory fields.');
+      return;
+    }
+
     try {
-      const payload = {
-        apaar_id: newApaar,
+      setSubmitting(true);
+      await api.admitStudent({
+        institution_id: newInst,
+        program_id: newProg,
+        apaar_id: newApaar.replace(/\s+/g, ''),
         student_id: newRoll,
         name: newName,
-        institution_id: newInst || institutions[0]?.id,
-        program_id: newProg || programs[0]?.id,
         category: newCategory,
+        seat_category: newSupernumerary === 'NONE' ? 'REGULAR' : newSupernumerary,
         supernumerary_classification: newSupernumerary,
         admission_date: new Date().toISOString().split('T')[0]
-      };
-      await api.admitStudent(payload);
-      setActionMsg(`Student ${newName} admitted and Verhoeff validated!`);
-      setShowAdmitModal(false);
-      setNewApaar("");
-      setNewRoll("");
-      setNewName("");
-      loadStudents();
+      });
+
+      setSuccessMsg('Student admitted and registered successfully!');
+      setTimeout(() => {
+        setShowAddModal(false);
+        setSuccessMsg('');
+        setNewApaar('');
+        setNewRoll('');
+        setNewName('');
+        loadStudents();
+      }, 1500);
     } catch (err: any) {
-      setFormError(err.message);
+      setFormError(err.message || 'Validation failed. Check Verhoeff checksum or program cap.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const handleIssueCredential = async (student: any) => {
-    try {
-      if (!student.current_enrolment) {
-        alert("Student does not have an active enrolment record.");
-        return;
-      }
-      const res = await api.issueCredential(student.id, student.current_enrolment.id);
-      setActionMsg(`Credential issued for ${student.name}! Ref: ${res.credential_id}`);
-      setActiveCertStudent({ ...student, credential_id: res.credential_id });
-      setShowCertModal(true);
-    } catch (err: any) {
-      alert(`Issuance failed: ${err.message}`);
-    }
-  };
+  const canAddRecord =
+    user?.role === 'AICTE_ADMIN' ||
+    user?.role === 'INSTITUTION_ADMIN' ||
+    user?.role === 'DATA_ENTRY_OFFICER';
 
-  const openBonafide = (student: any) => {
-    setActiveCertStudent(student);
-    setShowCertModal(true);
-  };
+  // Format table rows matching design
+  const tableRows = students.map(s => {
+    const enr = s.current_enrolment;
+    const isProvisional = enr?.enrolment_status === 'PROVISIONAL';
+    const isSuspended = enr?.enrolment_status === 'SUSPENDED';
+
+    const statusBadge = isSuspended ? (
+      <Badge tone="red">Flagged</Badge>
+    ) : isProvisional ? (
+      <Badge tone="amber">Pending</Badge>
+    ) : (
+      <Badge tone="green">Verified</Badge>
+    );
+
+    return [
+      <span>
+        <strong>{s.name}</strong>
+        <span className="mono" style={{ display: 'block', fontSize: 11, color: '#64748B' }}>
+          Roll: {s.student_id}
+        </span>
+      </span>,
+      <span className="mono">{s.apaar_id_masked}</span>,
+      <span>{enr?.institution_name || '—'}</span>,
+      <span>
+        {enr?.program_name || '—'}
+        {enr?.supernumerary_classification && enr.supernumerary_classification !== 'NONE' && (
+          <span className="badge sky" style={{ marginLeft: 6, fontSize: 10, padding: '1px 6px' }}>
+            {enr.supernumerary_classification}
+          </span>
+        )}
+      </span>,
+      statusBadge,
+      <button
+        type="button"
+        onClick={() => setActiveStudent(s)}
+        className="btn"
+        style={{ padding: '4px 10px', fontSize: 12 }}
+      >
+        View
+      </button>
+    ];
+  });
+
+  const startRecord = (page - 1) * PAGE_SIZE + 1;
+  const endRecord = Math.min(page * PAGE_SIZE, totalCount);
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE) || 1;
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header & Controls */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-            <Users className="w-5 h-5 text-blue-600" />
-            <span>National Student Registry</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Searchable registry of verified students linked with 12-digit APAAR sovereign keys. Total: <strong>{totalCount}</strong>
-          </p>
-        </div>
-
-        <div className="flex items-center space-x-3">
+    <Shell
+      active="registry"
+      user={user}
+      onNavigate={onNavigateTab}
+      onLogout={onLogout}
+      onSwitchPersona={onSwitchPersona}
+    >
+      <Head
+        eyebrow="Student data"
+        title="Student registry"
+        sub="Search and review verified student records with cryptographic audit hashes."
+      >
+        {canAddRecord && (
           <button
-            onClick={() => setShowAdmitModal(true)}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold flex items-center space-x-1.5 shadow-sm transition-all"
+            type="button"
+            onClick={() => setShowAddModal(true)}
+            className="btn pri"
           >
-            <UserPlus className="w-4 h-4" />
-            <span>Admit Single Student</span>
+            Add record
           </button>
-        </div>
-      </div>
+        )}
+      </Head>
 
-      {actionMsg && (
-        <div className="p-3 bg-emerald-50 text-emerald-800 text-xs rounded-lg border border-emerald-200 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-            <span>{actionMsg}</span>
-          </div>
-          <button onClick={() => setActionMsg("")} className="text-emerald-700 hover:text-emerald-900">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+      {error && <ErrorState error={error} onRetry={loadStudents} />}
 
-      {/* Filter and Search Bar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-3 items-center justify-between">
-        <form onSubmit={handleSearchSubmit} className="flex-1 w-full md:w-auto relative">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+      <Card>
+        {/* Search & Filter Controls */}
+        <form onSubmit={handleSearchSubmit} className="row" style={{ marginBottom: 16, gap: 10 }}>
           <input
             type="text"
-            placeholder="Search by student name, roll number, or APAAR ID..."
+            placeholder="Search name, APAAR ID, roll number"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onChange={e => setSearchTerm(e.target.value)}
+            style={{ flex: 1, minWidth: 240 }}
           />
-        </form>
 
-        <div className="flex items-center space-x-2 w-full md:w-auto">
-          {/* Institution Filter */}
-          {user?.role === "AICTE_ADMIN" && (
+          {user?.role !== 'INSTITUTION_ADMIN' && user?.role !== 'DATA_ENTRY_OFFICER' && (
             <select
               value={selectedInst}
-              onChange={(e) => { setSelectedInst(e.target.value); setPage(1); }}
-              className="bg-slate-50 border border-slate-300 rounded-lg text-xs px-3 py-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onChange={e => {
+                setSelectedInst(e.target.value);
+                setPage(1);
+              }}
+              style={{ maxWidth: 220 }}
             >
-              <option value="">All Institutions</option>
+              <option value="">All institutions</option>
               {institutions.map(inst => (
-                <option key={inst.id} value={inst.id}>{inst.official_code}</option>
+                <option key={inst.id} value={inst.id}>
+                  {inst.name}
+                </option>
               ))}
             </select>
           )}
 
-          {/* Program Filter */}
           <select
-            value={selectedProg}
-            onChange={(e) => { setSelectedProg(e.target.value); setPage(1); }}
-            className="bg-slate-50 border border-slate-300 rounded-lg text-xs px-3 py-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={selectedStatus}
+            onChange={e => {
+              setSelectedStatus(e.target.value);
+              setPage(1);
+            }}
           >
-            <option value="">All Programs</option>
-            {programs.map(prog => (
-              <option key={prog.id} value={prog.id}>{prog.program_name}</option>
-            ))}
+            <option value="ALL">Any status</option>
+            <option value="ACTIVE">Verified (Active)</option>
+            <option value="PROVISIONAL">Pending (Provisional)</option>
+            <option value="SUSPENDED">Flagged (Suspended)</option>
           </select>
-        </div>
-      </div>
 
-      {/* Students Data Table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-100 text-slate-600 uppercase font-semibold">
-              <tr>
-                <th className="py-3 px-4">Student Name</th>
-                <th className="py-3 px-4">APAAR Identifier</th>
-                <th className="py-3 px-4">Roll Number</th>
-                <th className="py-3 px-4">Institution</th>
-                <th className="py-3 px-4">Program</th>
-                <th className="py-3 px-4">Seat / Quota</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {loading ? (
-                <tr>
-                  <td colSpan={8} className="py-8 text-center text-slate-500">
-                    Loading student records...
-                  </td>
-                </tr>
-              ) : students.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-8 text-center text-slate-500">
-                    No matching student records found.
-                  </td>
-                </tr>
-              ) : (
-                students.map((s) => {
-                  const enr = s.current_enrolment;
-                  const isCollision = enr?.enrolment_status === "FLAGGED";
-                  return (
-                    <tr key={s.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-3 px-4 font-bold text-slate-800">
-                        {s.name}
-                      </td>
-                      <td className="py-3 px-4 font-mono font-medium text-slate-600">
-                        {piiMasked ? s.apaar_id_masked : (s.apaar_id || s.apaar_id_masked)}
-                      </td>
-                      <td className="py-3 px-4 font-mono text-slate-700 font-semibold">
-                        {s.student_id}
-                      </td>
-                      <td className="py-3 px-4 text-slate-600 truncate max-w-[160px]">
-                        {enr?.institution_name || "N/A"}
-                      </td>
-                      <td className="py-3 px-4 text-slate-600 truncate max-w-[160px]">
-                        {enr?.program_name || "N/A"}
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                          enr?.supernumerary_classification !== "NONE"
-                            ? "bg-amber-100 text-amber-800"
-                            : "bg-slate-100 text-slate-700"
-                        }`}>
-                          {enr?.supernumerary_classification || "REGULAR"}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                          isCollision
-                            ? "bg-rose-100 text-rose-700"
-                            : "bg-emerald-100 text-emerald-700"
-                        }`}>
-                          {isCollision ? "Flagged Collision" : "Verified"}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-right space-x-1.5 whitespace-nowrap">
-                        <button
-                          onClick={() => openBonafide(s)}
-                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[11px] font-semibold transition-all inline-flex items-center gap-1"
-                        >
-                          <FileText className="w-3 h-3 text-blue-600" />
-                          <span>Bonafide</span>
-                        </button>
-                        <button
-                          onClick={() => handleIssueCredential(s)}
-                          className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded text-[11px] font-semibold transition-all inline-flex items-center gap-1"
-                        >
-                          <Award className="w-3 h-3 text-blue-600" />
-                          <span>Issue VC</span>
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+          <button type="submit" className="btn">
+            Filter
+          </button>
+        </form>
 
-        {/* Pagination Footer */}
-        <div className="p-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
-          <div>
-            Showing {(page - 1) * 25 + 1} to {Math.min(page * 25, totalCount)} of {totalCount} records
+        {/* Data Table */}
+        {loading && students.length === 0 ? (
+          <div style={{ display: 'grid', gap: 8, padding: 16 }}>
+            <Skeleton height={36} />
+            <Skeleton height={36} />
+            <Skeleton height={36} />
+            <Skeleton height={36} />
           </div>
-          <div className="flex space-x-2">
+        ) : (
+          <Table
+            head={['Student', 'APAAR ID', 'Institution', 'Course', 'Status', '']}
+            rows={tableRows}
+          />
+        )}
+
+        {/* Pagination Controls */}
+        <div className="row" style={{ justifyContent: 'space-between', marginTop: 16, borderTop: '1px solid var(--mist)', paddingTop: 12 }}>
+          <span className="sub">
+            Showing {totalCount > 0 ? `${startRecord}–${endRecord}` : '0'} of {totalCount.toLocaleString('en-IN')}
+          </span>
+          <div className="row" style={{ gap: 8 }}>
             <button
-              onClick={() => setPage(p => Math.max(p - 1, 1))}
-              disabled={page === 1}
-              className="px-3 py-1 bg-white border border-slate-300 rounded text-xs font-semibold hover:bg-slate-100 disabled:opacity-50"
+              type="button"
+              className="btn"
+              disabled={page <= 1 || loading}
+              onClick={() => setPage(p => Math.max(1, p - 1))}
             >
               Previous
             </button>
+            <span style={{ fontSize: 13, alignSelf: 'center', color: 'var(--slate)' }}>
+              Page {page} of {totalPages}
+            </span>
             <button
+              type="button"
+              className="btn"
+              disabled={page >= totalPages || loading}
               onClick={() => setPage(p => p + 1)}
-              disabled={page * 25 >= totalCount}
-              className="px-3 py-1 bg-white border border-slate-300 rounded text-xs font-semibold hover:bg-slate-100 disabled:opacity-50"
             >
               Next
             </button>
           </div>
         </div>
-      </div>
+      </Card>
 
-      {/* Admit Single Student Modal */}
-      {showAdmitModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden">
-            <div className="p-5 bg-gradient-to-r from-navy-900 to-navy-800 text-white flex items-center justify-between">
+      {/* Inspect Student Modal */}
+      {activeStudent && (
+        <div style={{ position: 'fixed', inset: 0, background: '#0f172a80', display: 'grid', placeItems: 'center', zIndex: 50, padding: 16 }}>
+          <div className="card" style={{ width: '100%', maxWidth: 520, padding: 24, boxShadow: '0 20px 25px -5px #00000040' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
               <div>
-                <h3 className="font-bold text-base">Admit Single Student Entry</h3>
-                <p className="text-xs text-slate-300">Enforces client & server-side Verhoeff validation</p>
+                <h2>{activeStudent.name}</h2>
+                <div className="mono" style={{ fontSize: 13, color: 'var(--slate)' }}>
+                  APAAR: {activeStudent.apaar_id_masked}
+                </div>
               </div>
-              <button onClick={() => setShowAdmitModal(false)} className="text-slate-400 hover:text-white">
-                <X className="w-5 h-5" />
+              <button
+                type="button"
+                onClick={() => setActiveStudent(null)}
+                className="btn"
+                style={{ padding: '4px 10px' }}
+              >
+                ✕
               </button>
             </div>
 
-            <form onSubmit={handleAdmitStudent} className="p-5 space-y-4">
-              {formError && (
-                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-lg flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4" />
-                  <span>{formError}</span>
-                </div>
-              )}
+            <ul className="list" style={{ borderTop: '1px solid var(--mist)', borderBottom: '1px solid var(--mist)', padding: '16px 0', marginBottom: 16 }}>
+              <li>
+                <span>Institution</span>
+                <strong>{activeStudent.current_enrolment?.institution_name || '—'}</strong>
+              </li>
+              <li>
+                <span>Program</span>
+                <span>{activeStudent.current_enrolment?.program_name || '—'}</span>
+              </li>
+              <li>
+                <span>Roll / Student ID</span>
+                <span className="mono">{activeStudent.student_id}</span>
+              </li>
+              <li>
+                <span>Seat Category</span>
+                <span>{activeStudent.current_enrolment?.seat_category || 'REGULAR'}</span>
+              </li>
+              <li>
+                <span>Tamper Hash</span>
+                <span className="mono" style={{ fontSize: 11 }}>
+                  {activeStudent.current_enrolment?.tamper_hash?.slice(0, 16)}…
+                </span>
+              </li>
+              <li>
+                <span>Regulatory Status</span>
+                <Badge tone={activeStudent.current_enrolment?.enrolment_status === 'ACTIVE' ? 'green' : 'amber'}>
+                  {activeStudent.current_enrolment?.enrolment_status || 'ACTIVE'}
+                </Badge>
+              </li>
+            </ul>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  12-Digit APAAR Identifier (Aadhaar / National UID Standard)
-                </label>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => setActiveStudent(null)}
+                className="btn"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Student Record Modal */}
+      {showAddModal && (
+        <div style={{ position: 'fixed', inset: 0, background: '#0f172a80', display: 'grid', placeItems: 'center', zIndex: 50, padding: 16 }}>
+          <div className="card" style={{ width: '100%', maxWidth: 500, padding: 24, boxShadow: '0 20px 25px -5px #00000040' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h2>Add Student Admission</h2>
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="btn"
+                style={{ padding: '4px 10px' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {formError && (
+              <div className="badge red" style={{ width: '100%', padding: '8px 12px', borderRadius: 8, marginBottom: 12 }}>
+                ✕ {formError}
+              </div>
+            )}
+            {successMsg && (
+              <div className="badge green" style={{ width: '100%', padding: '8px 12px', borderRadius: 8, marginBottom: 12 }}>
+                ✓ {successMsg}
+              </div>
+            )}
+
+            <form onSubmit={handleAddSubmit} style={{ display: 'grid', gap: 12 }}>
+              <label className="field">
+                <span>12-Digit APAAR ID</span>
                 <input
                   type="text"
-                  maxLength={12}
                   placeholder="e.g. 984210573915"
+                  className="mono"
                   value={newApaar}
-                  onChange={(e) => setNewApaar(e.target.value.replace(/\D/g, ''))}
+                  onChange={e => setNewApaar(e.target.value)}
                   required
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <span className="text-[10px] text-slate-500">Must satisfy the dihedral $D_5$ Verhoeff checksum.</span>
-              </div>
+              </label>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Student Full Name
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Priya Sharma"
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    required
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Institutional Roll No
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 24/CSE/055"
-                    value={newRoll}
-                    onChange={(e) => setNewRoll(e.target.value)}
-                    required
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
+              <label className="field">
+                <span>Student Full Name</span>
+                <input
+                  type="text"
+                  placeholder="Official Aadhaar matched name"
+                  value={newName}
+                  onChange={e => setNewName(e.target.value)}
+                  required
+                />
+              </label>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Institution
-                  </label>
-                  <select
-                    value={newInst}
-                    onChange={(e) => setNewInst(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    {institutions.map(i => (
-                      <option key={i.id} value={i.id}>{i.official_code}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Program
-                  </label>
-                  <select
-                    value={newProg}
-                    onChange={(e) => setNewProg(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    {programs.map(p => (
-                      <option key={p.id} value={p.id}>{p.program_name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+              <label className="field">
+                <span>Institutional Roll Number</span>
+                <input
+                  type="text"
+                  placeholder="e.g. 24/CSE/089"
+                  className="mono"
+                  value={newRoll}
+                  onChange={e => setNewRoll(e.target.value)}
+                  required
+                />
+              </label>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Category
-                  </label>
-                  <select
-                    value={newCategory}
-                    onChange={(e) => setNewCategory(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="General">General</option>
-                    <option value="OBC">OBC</option>
-                    <option value="SC">SC</option>
-                    <option value="ST">ST</option>
-                    <option value="EWS">EWS</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Supernumerary Quota
-                  </label>
-                  <select
-                    value={newSupernumerary}
-                    onChange={(e) => setNewSupernumerary(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="NONE">Regular Core Seat (None)</option>
-                    <option value="TFW">TFW (Tuition Fee Waiver - 5%)</option>
-                    <option value="EWS">EWS Quota (10%)</option>
-                    <option value="NRI">NRI Quota (5%)</option>
-                    <option value="FN_OCI">Foreign National / OCI (15%)</option>
-                    <option value="PMSSS">PMSSS (J&K Special)</option>
-                  </select>
-                </div>
-              </div>
+              <label className="field">
+                <span>Institution</span>
+                <select
+                  value={newInst}
+                  onChange={e => {
+                    setNewInst(e.target.value);
+                    api.getPrograms(e.target.value).then(setPrograms);
+                  }}
+                  disabled={user?.role === 'INSTITUTION_ADMIN' || user?.role === 'DATA_ENTRY_OFFICER'}
+                  required
+                >
+                  <option value="">Select Institution</option>
+                  {institutions.map(inst => (
+                    <option key={inst.id} value={inst.id}>
+                      {inst.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-              <div className="pt-3 border-t border-slate-200 flex justify-end space-x-2">
+              <label className="field">
+                <span>Academic Program</span>
+                <select
+                  value={newProg}
+                  onChange={e => setNewProg(e.target.value)}
+                  required
+                >
+                  <option value="">Select Approved Program</option>
+                  {programs.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.program_name} ({p.program_code})
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="row" style={{ justifyContent: 'flex-end', marginTop: 12, gap: 8 }}>
                 <button
                   type="button"
-                  onClick={() => setShowAdmitModal(false)}
-                  className="px-4 py-2 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                  onClick={() => setShowAddModal(false)}
+                  className="btn"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold shadow-sm"
+                  className="btn pri"
+                  disabled={submitting}
                 >
-                  Validate & Admit Student
+                  {submitting ? 'Validating...' : 'Validate & Register'}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
-
-      {/* Official Bonafide Certificate Modal (Print Ready) */}
-      {showCertModal && activeCertStudent && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-200 overflow-hidden">
-            <div className="p-4 bg-slate-100 border-b border-slate-200 flex items-center justify-between no-print">
-              <span className="text-xs font-semibold text-slate-700">Official Bonafide Certificate Preview</span>
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => window.print()}
-                  className="px-3 py-1 bg-blue-600 text-white text-xs font-semibold rounded flex items-center gap-1"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>Print Certificate</span>
-                </button>
-                <button onClick={() => setShowCertModal(false)} className="p-1 text-slate-500 hover:text-slate-800">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Certificate Canvas */}
-            <div className="p-8 border-8 border-double border-slate-300 m-4 rounded-xl bg-gradient-to-b from-white to-slate-50/50 relative">
-              <div className="text-center space-y-1">
-                <div className="text-[11px] font-bold tracking-widest text-blue-900 uppercase">
-                  All India Council for Technical Education (AICTE)
-                </div>
-                <h2 className="text-xl font-serif font-bold text-slate-900">
-                  OFFICIAL BONAFIDE ENROLMENT CERTIFICATE
-                </h2>
-                <div className="text-xs text-slate-500">
-                  Academic Bank of Credits • APAAR Integrated Sovereign Registry
-                </div>
-              </div>
-
-              <div className="my-6 border-t border-b border-slate-200 py-4 text-xs space-y-3 leading-relaxed text-slate-800">
-                <p>
-                  This is to certify that <strong>{activeCertStudent.name}</strong>, holding sovereign APAAR Identifier 
-                  <strong className="font-mono text-blue-900"> {piiMasked ? activeCertStudent.apaar_id_masked : activeCertStudent.apaar_id}</strong>, 
-                  is a bona fide student enrolled under AICTE-approved institutional roll number 
-                  <strong className="font-mono"> {activeCertStudent.student_id}</strong>.
-                </p>
-                <div className="grid grid-cols-2 gap-4 bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs">
-                  <div>
-                    <span className="text-slate-500 block">Institution:</span>
-                    <strong>{activeCertStudent.current_enrolment?.institution_name || "AICTE Approved Institution"}</strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block">Program & Qualification:</span>
-                    <strong>{activeCertStudent.current_enrolment?.program_name || "Engineering & Technology"}</strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block">Academic Year:</span>
-                    <strong>2024–25 (Four-Year Degree)</strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block">Tamper-Proof Hash Seal:</span>
-                    <strong className="font-mono text-[10px] text-teal-800">
-                      {activeCertStudent.current_enrolment?.tamper_hash || "SHA256-REG-SEAL-VERIFIED"}
-                    </strong>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between pt-2">
-                <div className="space-y-1">
-                  <QRCodeSVG
-                    value={`http://localhost:3000/verify/${activeCertStudent.credential_id || activeCertStudent.apaar_id}`}
-                    size={80}
-                  />
-                  <div className="text-[9px] text-slate-400 font-mono">Scan to Verify Authenticity</div>
-                </div>
-
-                <div className="text-right">
-                  <div className="font-serif font-bold text-slate-900 text-sm">Regulatory Registrar Seal</div>
-                  <div className="text-[10px] text-slate-500">AICTE Regulation Bureau</div>
-                  <div className="text-[9px] text-emerald-600 font-semibold mt-1">✓ Cryptographically Signed</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    </Shell>
   );
 };
+
+export default StudentRegistry;

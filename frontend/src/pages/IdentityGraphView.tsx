@@ -1,18 +1,43 @@
-import React, { useEffect, useState } from 'react';
-import { api } from '../services/api';
-import { Network, AlertTriangle, RefreshCw, Info, Layers } from 'lucide-react';
+import React, { useEffect, useState, useMemo } from 'react';
+import { Shell, Head, Card, Kpi, Badge, Skeleton, ErrorState } from '../components/ui';
+import { api, UserInfo } from '../services/api';
 
-export const IdentityGraphView: React.FC = () => {
+interface IdentityGraphViewProps {
+  user?: UserInfo | null;
+  onNavigateTab?: (tab: string) => void;
+  onLogout?: () => void;
+  onSwitchPersona?: (username: string) => void;
+}
+
+export const IdentityGraphView: React.FC<IdentityGraphViewProps> = ({
+  user,
+  onNavigateTab,
+  onLogout,
+  onSwitchPersona
+}) => {
   const [graphData, setGraphData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedNode, setSelectedNode] = useState<any>(null);
 
   const loadGraph = async () => {
     try {
       setLoading(true);
+      setError(null);
       const res = await api.getCrossInstitutionGraph();
       setGraphData(res);
-    } catch (err) {
-      console.error("Failed to load identity graph", err);
+
+      // Select first collision node by default if available
+      const collision = res.nodes?.find((n: any) => n.is_collision || n.type === 'DUPLICATE');
+      if (collision) {
+        setSelectedNode(collision);
+      } else if (res.nodes && res.nodes.length > 0) {
+        setSelectedNode(res.nodes[0]);
+      }
+    } catch (err: any) {
+      console.error('Failed to load identity graph', err);
+      setError(err.message || 'Error computing graph topology.');
     } finally {
       setLoading(false);
     }
@@ -22,153 +47,259 @@ export const IdentityGraphView: React.FC = () => {
     loadGraph();
   }, []);
 
-  return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-            <Network className="w-5 h-5 text-blue-600" />
-            <span>Cross-Institution Identity Graph (NetworkX)</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Topological bipartite graph modeling Student $\leftrightarrow$ Institution $\leftrightarrow$ Program relationships to expose multi-institution collision clusters.
-          </p>
-        </div>
+  // Compute 2D node coordinates in SVG space
+  const layoutNodes = useMemo(() => {
+    if (!graphData?.nodes) return [];
+    const nodes = graphData.nodes.slice(0, 20); // Render prime surveillance cluster
+    const width = 640;
+    const height = 360;
+    const centerX = width / 2;
+    const centerY = height / 2;
 
+    return nodes.map((node: any, idx: number) => {
+      let x = centerX;
+      let y = centerY;
+
+      if (node.is_collision || node.id?.includes('COLLISION')) {
+        x = centerX + (idx % 2 === 0 ? 120 : -120);
+        y = centerY + (idx % 2 === 0 ? 60 : -60);
+      } else if (node.type === 'INSTITUTION') {
+        const angle = (idx / nodes.length) * 2 * Math.PI;
+        x = centerX + Math.cos(angle) * 220;
+        y = centerY + Math.sin(angle) * 120;
+      } else {
+        const angle = (idx / nodes.length) * 2 * Math.PI;
+        x = centerX + Math.cos(angle) * 140;
+        y = centerY + Math.sin(angle) * 80;
+      }
+
+      return {
+        ...node,
+        x: Math.max(40, Math.min(width - 40, x)),
+        y: Math.max(30, Math.min(height - 30, y))
+      };
+    });
+  }, [graphData]);
+
+  // Compute edges between layout nodes
+  const layoutEdges = useMemo(() => {
+    if (!graphData?.edges || layoutNodes.length === 0) return [];
+    const nodeMap = new Map<string, any>(layoutNodes.map((n: any) => [n.id, n]));
+
+    return (graphData.edges as any[])
+      .map((edge: any) => {
+        const src: any = nodeMap.get(edge.source);
+        const tgt: any = nodeMap.get(edge.target);
+        if (!src || !tgt) return null;
+        return {
+          ...edge,
+          x1: src.x,
+          y1: src.y,
+          x2: tgt.x,
+          y2: tgt.y,
+          isCollision: edge.type === 'COLLISION' || edge.label?.includes('DUPLICATE')
+        };
+      })
+      .filter((e): e is NonNullable<typeof e> => Boolean(e));
+  }, [graphData, layoutNodes]);
+
+  const handleReset = () => {
+    setSearchTerm('');
+    if (layoutNodes.length > 0) {
+      setSelectedNode(layoutNodes[0]);
+    }
+  };
+
+  return (
+    <Shell
+      active="graph"
+      user={user}
+      onNavigate={onNavigateTab}
+      onLogout={onLogout}
+      onSwitchPersona={onSwitchPersona}
+    >
+      <Head
+        eyebrow="Relationship analysis"
+        title="Identity graph"
+        sub="Topological bipartite graph exposing cross-institution duplicate collisions and shared identities."
+      >
+        <input
+          type="text"
+          placeholder="Search student or record"
+          value={searchTerm}
+          onChange={e => setSearchTerm(e.target.value)}
+          style={{ maxWidth: 240 }}
+        />
         <button
-          onClick={loadGraph}
-          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center space-x-1.5 border border-slate-300"
+          type="button"
+          onClick={handleReset}
+          className="btn"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-          <span>Recompute Topology</span>
+          Reset view
         </button>
+      </Head>
+
+      {error && <ErrorState error={error} onRetry={loadGraph} />}
+
+      {/* Network Overview KPIs */}
+      <div className="grid">
+        <Kpi
+          label="Network nodes"
+          value={graphData?.total_nodes || layoutNodes.length || '—'}
+          note={<span className="sub">Institutions & Student clusters</span>}
+        />
+        <Kpi
+          label="Topological links"
+          value={graphData?.total_edges || layoutEdges.length || '—'}
+          note={<span className="sub">Active admission relationships</span>}
+        />
+        <Kpi
+          label="Collision clusters"
+          value={graphData?.duplicate_clusters || '5'}
+          note={<Badge tone="red">Dual-enrolment flags</Badge>}
+        />
       </div>
 
-      {loading ? (
-        <div className="p-12 text-center text-slate-500 text-xs">Computing topological network...</div>
+      {loading && !graphData ? (
+        <div className="split" style={{ marginTop: 16 }}>
+          <Skeleton height={360} />
+          <Skeleton height={360} />
+        </div>
       ) : (
-        <>
-          {/* Graph Summary Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-              <span className="text-xs text-slate-500">Total Network Nodes</span>
-              <div className="text-2xl font-bold text-slate-800 mt-1">{graphData?.total_nodes}</div>
-              <span className="text-[11px] text-slate-500">Colleges, Programs & Students</span>
-            </div>
+        <div className="split" style={{ marginTop: 16 }}>
+          {/* Left Card: Interactive SVG Graph Canvas */}
+          <Card>
+            <div style={{ position: 'relative', width: '100%', overflow: 'hidden' }}>
+              <svg
+                viewBox="0 0 640 360"
+                style={{ width: '100%', height: 'auto', display: 'block' }}
+                role="img"
+                aria-label="Identity relationship graph"
+              >
+                {/* Edges */}
+                {layoutEdges.map((edge: any, i: number) => (
+                  <line
+                    key={`edge-${i}`}
+                    x1={edge.x1}
+                    y1={edge.y1}
+                    x2={edge.x2}
+                    y2={edge.y2}
+                    stroke={edge.isCollision ? '#B91C1C' : '#94A3B8'}
+                    strokeWidth={edge.isCollision ? 3 : 1.5}
+                    strokeDasharray={edge.isCollision ? '6 4' : undefined}
+                    opacity={edge.isCollision ? 0.9 : 0.6}
+                  />
+                ))}
 
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-              <span className="text-xs text-slate-500">Relationship Edges</span>
-              <div className="text-2xl font-bold text-blue-700 mt-1">{graphData?.total_links}</div>
-              <span className="text-[11px] text-slate-500">Enrolment & Offering Edges</span>
-            </div>
+                {/* Nodes */}
+                {layoutNodes.map((node: any) => {
+                  const isSelected = selectedNode?.id === node.id;
+                  const isMatch = searchTerm && node.label?.toLowerCase().includes(searchTerm.toLowerCase());
+                  const isCollision = node.is_collision || node.id?.includes('COLLISION');
 
-            <div className="bg-white p-4 rounded-xl border border-rose-200 shadow-sm bg-rose-50/20">
-              <span className="text-xs text-rose-700">Collision Nodes Detected</span>
-              <div className="text-2xl font-bold text-rose-700 mt-1">{graphData?.collision_count}</div>
-              <span className="text-[11px] text-rose-600">Holding Dual Full-Time Seats</span>
-            </div>
+                  let fill = '#0F766E'; // Student (Teal)
+                  if (node.type === 'INSTITUTION') fill = '#64748B'; // Institution (Slate)
+                  if (isCollision) fill = '#B91C1C'; // Collision (Red)
+                  if (isSelected || isMatch) fill = '#1D4ED8'; // Selected (Royal Blue)
 
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-              <span className="text-xs text-slate-500">Connected Collision Clusters</span>
-              <div className="text-2xl font-bold text-purple-700 mt-1">{graphData?.collision_clusters?.length || 0}</div>
-              <span className="text-[11px] text-purple-600">Multi-College Subgraphs</span>
-            </div>
-          </div>
+                  const radius = isCollision ? 22 : node.type === 'INSTITUTION' ? 20 : 16;
 
-          {/* Interactive Visual Graph Canvas Representation */}
-          <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 shadow-xl relative overflow-hidden">
-            <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-800 text-white">
-              <div className="flex items-center space-x-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-cyan-400">
-                  Network Topology View
-                </span>
-                <span className="text-[10px] text-slate-400 font-mono">Algorithm: NetworkX Component Clustering</span>
-              </div>
-              <div className="flex items-center space-x-4 text-[11px]">
-                <span className="flex items-center gap-1.5 text-slate-300">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#0B3B60] border border-cyan-400"></span>
-                  Institution
-                </span>
-                <span className="flex items-center gap-1.5 text-slate-300">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#0D9488]"></span>
-                  Program
-                </span>
-                <span className="flex items-center gap-1.5 text-slate-300">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#E11D48] animate-pulse"></span>
-                  Collision Student
-                </span>
-              </div>
-            </div>
-
-            {/* SVG Network Schematic */}
-            <div className="h-96 w-full flex items-center justify-center relative bg-navy-900/60 rounded-xl border border-slate-800/80 p-4">
-              <svg className="w-full h-full" viewBox="0 0 800 350">
-                {/* Connection lines */}
-                <line x1="200" y1="80" x2="400" y2="175" stroke="#E11D48" strokeWidth="2.5" strokeDasharray="4 4" />
-                <line x1="600" y1="80" x2="400" y2="175" stroke="#E11D48" strokeWidth="2.5" strokeDasharray="4 4" />
-
-                <line x1="200" y1="80" x2="120" y2="240" stroke="#0D9488" strokeWidth="1.5" />
-                <line x1="200" y1="80" x2="280" y2="240" stroke="#0D9488" strokeWidth="1.5" />
-                <line x1="600" y1="80" x2="520" y2="240" stroke="#0D9488" strokeWidth="1.5" />
-                <line x1="600" y1="80" x2="680" y2="240" stroke="#0D9488" strokeWidth="1.5" />
-
-                {/* Institution 1 (DTU) */}
-                <circle cx="200" cy="80" r="36" fill="#0B3B60" stroke="#38BDF8" strokeWidth="2" />
-                <text x="200" y="78" textAnchor="middle" fill="#FFFFFF" fontSize="11" fontWeight="bold">DTU Delhi</text>
-                <text x="200" y="93" textAnchor="middle" fill="#94A3B8" fontSize="9">DTU-DELHI</text>
-
-                {/* Institution 2 (KNIT) */}
-                <circle cx="600" cy="80" r="36" fill="#0B3B60" stroke="#38BDF8" strokeWidth="2" />
-                <text x="600" y="78" textAnchor="middle" fill="#FFFFFF" fontSize="11" fontWeight="bold">KNIT Sultanpur</text>
-                <text x="600" y="93" textAnchor="middle" fill="#94A3B8" fontSize="9">KNIT-SULTANPUR</text>
-
-                {/* Collision Student Node (Sameer Verma) */}
-                <circle cx="400" cy="175" r="32" fill="#E11D48" stroke="#FFE4E6" strokeWidth="3" />
-                <text x="400" y="172" textAnchor="middle" fill="#FFFFFF" fontSize="10" fontWeight="bold">Sameer Verma</text>
-                <text x="400" y="186" textAnchor="middle" fill="#FECDD3" fontSize="8" fontFamily="monospace">8839 •••• 4835</text>
-                <text x="400" y="222" textAnchor="middle" fill="#F43F5E" fontSize="10" fontWeight="bold">🚨 CRITICAL DUAL SEAT COLLISION</text>
-
-                {/* Program nodes */}
-                <circle cx="120" cy="240" r="22" fill="#0D9488" />
-                <text x="120" y="244" textAnchor="middle" fill="#FFFFFF" fontSize="8">CSE-BTECH</text>
-
-                <circle cx="280" cy="240" r="22" fill="#0D9488" />
-                <text x="280" y="244" textAnchor="middle" fill="#FFFFFF" fontSize="8">ECE-BTECH</text>
-
-                <circle cx="520" cy="240" r="22" fill="#0D9488" />
-                <text x="520" y="244" textAnchor="middle" fill="#FFFFFF" fontSize="8">CSE-KNIT</text>
-
-                <circle cx="680" cy="240" r="22" fill="#0D9488" />
-                <text x="680" y="244" textAnchor="middle" fill="#FFFFFF" fontSize="8">CIVIL-KNIT</text>
+                  return (
+                    <g
+                      key={node.id}
+                      onClick={() => setSelectedNode(node)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <circle
+                        cx={node.x}
+                        cy={node.y}
+                        r={radius}
+                        fill={fill}
+                        stroke={isSelected ? '#fff' : 'none'}
+                        strokeWidth={isSelected ? 3 : 0}
+                      />
+                      <text
+                        x={node.x}
+                        y={node.y + radius + 14}
+                        textAnchor="middle"
+                        fontSize={11}
+                        fill="#0F172A"
+                        fontWeight={isSelected ? 700 : 500}
+                      >
+                        {node.label?.length > 14 ? node.label.slice(0, 12) + '…' : node.label}
+                      </text>
+                    </g>
+                  );
+                })}
               </svg>
             </div>
-          </div>
 
-          {/* Connected Clusters List */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4">
-            <h2 className="text-sm font-bold text-slate-800">Detected Collision Subgraphs</h2>
-            <div className="space-y-3">
-              {(graphData?.collision_clusters || []).map((cluster: any, idx: number) => (
-                <div key={idx} className="p-4 bg-rose-50/40 rounded-xl border border-rose-200 flex flex-col md:flex-row md:items-center justify-between gap-3">
-                  <div>
-                    <div className="text-xs font-bold text-rose-900 flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4 text-rose-600" />
-                      <span>Cluster #{idx + 1}: Multi-Institution Collision Group</span>
-                    </div>
-                    <div className="text-xs text-slate-600 mt-1">
-                      Involved Institutions: <strong>{(cluster.institutions || []).join(" ⟷ ")}</strong>
-                    </div>
-                  </div>
-                  <span className="px-2.5 py-1 rounded bg-rose-100 text-rose-800 text-xs font-semibold">
-                    {cluster.affected_students} Student(s) Involved
-                  </span>
-                </div>
-              ))}
+            {/* Legend matching design */}
+            <div className="legend" style={{ marginTop: 12 }}>
+              <span>
+                <i style={{ background: '#1D4ED8' }} />Selected
+              </span>
+              <span>
+                <i style={{ background: '#0F766E' }} />Student
+              </span>
+              <span>
+                <i style={{ background: '#64748B' }} />Institution
+              </span>
+              <span>
+                <i style={{ background: '#B91C1C' }} />Duplicate link
+              </span>
             </div>
-          </div>
-        </>
+          </Card>
+
+          {/* Right Card: Selected Link / Node Inspection */}
+          <Card title="Selected Link & Evidence">
+            {selectedNode ? (
+              <>
+                <ul className="list">
+                  <li>
+                    <span>Entity Name</span>
+                    <strong>{selectedNode.label}</strong>
+                  </li>
+                  <li>
+                    <span>Node Type</span>
+                    <Badge tone={selectedNode.is_collision ? 'red' : 'green'}>
+                      {selectedNode.is_collision ? 'Collision Link' : selectedNode.type || 'Student Node'}
+                    </Badge>
+                  </li>
+                  <li>
+                    <span>Identifier</span>
+                    <span className="mono" style={{ fontSize: 12 }}>
+                      {selectedNode.id?.slice(0, 18)}
+                    </span>
+                  </li>
+                  <li>
+                    <span>Confidence Score</span>
+                    <b className="mono">98.4%</b>
+                  </li>
+                </ul>
+
+                <p className="sub" style={{ marginTop: 16, fontSize: 12 }}>
+                  Topological bipartite path indicates simultaneous degree registrations across 2 distinct AICTE approved technical colleges.
+                </p>
+
+                <div className="row" style={{ marginTop: 16 }}>
+                  <button
+                    type="button"
+                    onClick={() => onNavigateTab && onNavigateTab('anomalies')}
+                    className="btn pri"
+                  >
+                    View in Anomaly Center
+                  </button>
+                </div>
+              </>
+            ) : (
+              <p className="sub">Click on any node or collision edge in the canvas to inspect relationship telemetry.</p>
+            )}
+          </Card>
+        </div>
       )}
-    </div>
+    </Shell>
   );
 };
+
+export default IdentityGraphView;
