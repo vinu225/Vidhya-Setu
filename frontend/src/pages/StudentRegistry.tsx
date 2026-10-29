@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Shell, Head, Card, Badge, Table, Skeleton, ErrorState, EmptyState } from '../components/ui';
 import { api, UserInfo, Student, Institution, Program } from '../services/api';
 import { QRCodeSVG } from 'qrcode.react';
+import { SakshamScrutinyStudio } from '../components/SakshamScrutinyStudio';
 
 interface StudentRegistryProps {
   user?: UserInfo | null;
@@ -23,6 +24,8 @@ export const StudentRegistry: React.FC<StudentRegistryProps> = ({
   const [programs, setPrograms] = useState<Program[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showSaksham, setShowSaksham] = useState(false);
+  const [sakshamCase, setSakshamCase] = useState('case-1');
 
   // Filters & Pagination
   const [searchTerm, setSearchTerm] = useState('');
@@ -181,14 +184,29 @@ export const StudentRegistry: React.FC<StudentRegistryProps> = ({
         )}
       </span>,
       statusBadge,
-      <button
-        type="button"
-        onClick={() => setActiveStudent(s)}
-        className="btn"
-        style={{ padding: '4px 10px', fontSize: 12 }}
-      >
-        View
-      </button>
+      <div style={{ display: 'flex', gap: 6 }}>
+        <button
+          type="button"
+          onClick={() => setActiveStudent(s)}
+          className="btn"
+          style={{ padding: '4px 10px', fontSize: 12 }}
+        >
+          View
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            const target = s.name.toLowerCase().includes('abhishek') ? 'case-2' : (s.name.toLowerCase().includes('rahul') ? 'case-3' : 'case-1');
+            setSakshamCase(target);
+            setShowSaksham(true);
+          }}
+          className="btn"
+          style={{ padding: '4px 8px', fontSize: 11, borderColor: 'var(--blue)', color: 'var(--blue)' }}
+          title="Inspect SAKSHAM Document Verification Evidence"
+        >
+          🔍 Docs
+        </button>
+      </div>
     ];
   });
 
@@ -209,6 +227,17 @@ export const StudentRegistry: React.FC<StudentRegistryProps> = ({
         title="Student registry"
         sub="Search and review verified student records with cryptographic audit hashes."
       >
+        <button
+          type="button"
+          onClick={() => {
+            setSakshamCase('case-1');
+            setShowSaksham(true);
+          }}
+          className="btn"
+          style={{ borderColor: 'var(--blue)', color: 'var(--blue)', fontWeight: 600 }}
+        >
+          🔍 SAKSHAM Doc Scrutiny
+        </button>
         {canAddRecord && (
           <button
             type="button"
@@ -368,6 +397,18 @@ export const StudentRegistry: React.FC<StudentRegistryProps> = ({
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <button
                 type="button"
+                onClick={() => {
+                  const target = activeStudent.name.toLowerCase().includes('abhishek') ? 'case-2' : (activeStudent.name.toLowerCase().includes('rahul') ? 'case-3' : 'case-1');
+                  setSakshamCase(target);
+                  setShowSaksham(true);
+                  setActiveStudent(null);
+                }}
+                className="btn pri"
+              >
+                🔍 SAKSHAM Doc Scrutiny
+              </button>
+              <button
+                type="button"
                 onClick={() => setActiveStudent(null)}
                 className="btn"
               >
@@ -496,6 +537,14 @@ export const StudentRegistry: React.FC<StudentRegistryProps> = ({
             </form>
           </div>
         </div>
+      )}
+
+      {showSaksham && (
+        <SakshamScrutinyStudio
+          onClose={() => setShowSaksham(false)}
+          initialCaseId={sakshamCase}
+          role={user?.role || 'INSTITUTION_ADMIN'}
+        />
       )}
     </Shell>
   );

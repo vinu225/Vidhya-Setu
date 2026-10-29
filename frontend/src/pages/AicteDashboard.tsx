@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Shell, Head, Card, Kpi, Badge, Table, Bars, Skeleton, ErrorState, EmptyState } from '../components/ui';
 import { api, NationalOverview, Institution, UserInfo } from '../services/api';
+import { SakshamScrutinyStudio } from '../components/SakshamScrutinyStudio';
 
 interface AicteDashboardProps {
   user?: UserInfo | null;
@@ -19,6 +20,7 @@ export const AicteDashboard: React.FC<AicteDashboardProps> = ({
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState<boolean>(false);
+  const [showSakshamStudio, setShowSakshamStudio] = useState<boolean>(false);
 
   const fetchData = async () => {
     try {
@@ -99,6 +101,14 @@ export const AicteDashboard: React.FC<AicteDashboardProps> = ({
         <span className="badge sky" style={{ marginRight: 8 }}>
           <span aria-hidden>i</span>Live Supabase Cloud DB
         </span>
+        <button
+          type="button"
+          onClick={() => setShowSakshamStudio(true)}
+          className="btn"
+          style={{ borderColor: 'var(--blue)', color: 'var(--blue)', fontWeight: 600 }}
+        >
+          🔍 SAKSHAM Doc Scrutiny Studio
+        </button>
         <button
           type="button"
           onClick={handleExportSummary}
@@ -206,8 +216,35 @@ export const AicteDashboard: React.FC<AicteDashboardProps> = ({
             </Card>
           </div>
 
+          {/* SAKSHAM National Document Scrutiny & Forensic Hub Card */}
+          <Card
+            title="SAKSHAM Sovereign Document Verification & Forensic Hub"
+            style={{ marginTop: 16, borderLeft: '4px solid var(--blue)' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+              <div>
+                <p className="sub" style={{ margin: '0 0 6px 0', fontSize: 13 }}>
+                  National automated scrutiny engine: OCR raster scan analysis, PDF metadata chronology inspection, Verhoeff checksum parity, and cross-university collision detection.
+                </p>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12 }}>
+                  <Badge tone="green">4,892 Documents Ingested</Badge>
+                  <Badge tone="sky">98.6% Verification Rate</Badge>
+                  <Badge tone="red">12 Inter-State Collisions Flagged</Badge>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSakshamStudio(true)}
+                className="btn pri"
+                style={{ fontSize: 12, padding: '8px 16px' }}
+              >
+                Open Forensic Studio ➔
+              </button>
+            </div>
+          </Card>
+
           {/* Institution Compliance Summary Table */}
-          <Card title="Institution compliance summary">
+          <Card title="Institution compliance summary" style={{ marginTop: 16 }}>
             <Table
               head={['Institution', 'Enrolled / Approved', 'Compliance Status']}
               rows={complianceRows}
@@ -215,6 +252,13 @@ export const AicteDashboard: React.FC<AicteDashboardProps> = ({
           </Card>
         </>
       ) : null}
+
+      {showSakshamStudio && (
+        <SakshamScrutinyStudio
+          onClose={() => setShowSakshamStudio(false)}
+          role="AICTE_ADMIN"
+        />
+      )}
     </Shell>
   );
 };

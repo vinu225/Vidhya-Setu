@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Shell, Head, Card, Badge, Table, Skeleton, ErrorState, EmptyState } from '../components/ui';
 import { api, UserInfo, AuditEvent } from '../services/api';
+import { SakshamScrutinyStudio } from '../components/SakshamScrutinyStudio';
 
 interface AuditVaultProps {
   user?: UserInfo | null;
@@ -21,6 +22,8 @@ export const AuditVault: React.FC<AuditVaultProps> = ({
   const [actorFilter, setActorFilter] = useState('');
   const [actionFilter, setActionFilter] = useState('');
   const [selectedEvent, setSelectedEvent] = useState<AuditEvent | null>(null);
+  const [showSakshamStudio, setShowSakshamStudio] = useState(false);
+  const [initialCase, setInitialCase] = useState('case-1');
 
   const loadAudit = async () => {
     try {
@@ -117,7 +120,67 @@ export const AuditVault: React.FC<AuditVaultProps> = ({
         eyebrow="Audit trail"
         title="Audit vault"
         sub="Read-only immutable record of all student admissions, uploads, verification queries, and administrative sanctions."
-      />
+      >
+        <button
+          type="button"
+          onClick={() => {
+            setInitialCase('case-1');
+            setShowSakshamStudio(true);
+          }}
+          className="btn"
+          style={{ borderColor: 'var(--blue)', color: 'var(--blue)', fontWeight: 600 }}
+        >
+          🔍 SAKSHAM Forensic Scrutiny
+        </button>
+      </Head>
+
+      {/* SAKSHAM Forensic Evidence Trail Card */}
+      <Card
+        title="SAKSHAM Multi-Modal Document Forensic Audit Trail"
+        style={{ marginBottom: 16, borderLeft: '4px solid var(--blue)' }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <p className="sub" style={{ margin: '0 0 8px 0', fontSize: 13 }}>
+              Forensic document audit vault tracking binary SHA-256 digests, optical character recognition confidence, and metadata chronological anomalies.
+            </p>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12 }}>
+              <button
+                type="button"
+                onClick={() => { setInitialCase('case-1'); setShowSakshamStudio(true); }}
+                className="btn"
+                style={{ fontSize: 11, padding: '3px 8px' }}
+              >
+                Inspect Case 1: DTU Admission (Verified)
+              </button>
+              <button
+                type="button"
+                onClick={() => { setInitialCase('case-2'); setShowSakshamStudio(true); }}
+                className="btn"
+                style={{ fontSize: 11, padding: '3px 8px', borderColor: 'var(--amber)', color: 'var(--amber)' }}
+              >
+                Inspect Case 2: EWS Quota (DOB Mismatch)
+              </button>
+              <button
+                type="button"
+                onClick={() => { setInitialCase('case-3'); setShowSakshamStudio(true); }}
+                className="btn"
+                style={{ fontSize: 11, padding: '3px 8px', borderColor: 'var(--red)', color: 'var(--red)' }}
+              >
+                Inspect Case 3: Marksheet (Inter-State Collision)
+              </button>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => { setInitialCase('case-1'); setShowSakshamStudio(true); }}
+            className="btn pri"
+            style={{ fontSize: 12, padding: '8px 16px' }}
+          >
+            Open Evidence Studio ➔
+          </button>
+        </div>
+      </Card>
 
       {error && <ErrorState error={error} onRetry={loadAudit} />}
 
@@ -217,6 +280,14 @@ export const AuditVault: React.FC<AuditVaultProps> = ({
           )}
         </Card>
       </div>
+
+      {showSakshamStudio && (
+        <SakshamScrutinyStudio
+          onClose={() => setShowSakshamStudio(false)}
+          initialCaseId={initialCase}
+          role="AUDITOR"
+        />
+      )}
     </Shell>
   );
 };

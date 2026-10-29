@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Shell, Head, Card, Kpi, Badge, Table, Skeleton, ErrorState, EmptyState } from '../components/ui';
 import { api, UserInfo, Institution } from '../services/api';
+import { SakshamScrutinyStudio } from '../components/SakshamScrutinyStudio';
 
 interface InstitutionDashboardProps {
   user: UserInfo | null;
@@ -20,6 +21,7 @@ export const InstitutionDashboard: React.FC<InstitutionDashboardProps> = ({
   const [instData, setInstData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showSakshamStudio, setShowSakshamStudio] = useState(false);
 
   useEffect(() => {
     if (user?.institution_id) {
@@ -122,6 +124,14 @@ export const InstitutionDashboard: React.FC<InstitutionDashboardProps> = ({
             ))}
           </select>
         )}
+        <button
+          type="button"
+          onClick={() => setShowSakshamStudio(true)}
+          className="btn"
+          style={{ borderColor: 'var(--blue)', color: 'var(--blue)', fontWeight: 600 }}
+        >
+          🔍 SAKSHAM Doc Scrutiny
+        </button>
         <button
           type="button"
           onClick={() => onNavigateTab && onNavigateTab('upload')}
@@ -228,8 +238,35 @@ export const InstitutionDashboard: React.FC<InstitutionDashboardProps> = ({
             </Card>
           </div>
 
+          {/* SAKSHAM Document Scrutiny Desk Card */}
+          <Card
+            title="SAKSHAM Multi-Modal Document Scrutiny Desk"
+            style={{ marginTop: 16, borderLeft: '4px solid var(--blue)' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+              <div>
+                <p className="sub" style={{ margin: '0 0 6px 0', fontSize: 13 }}>
+                  AICTE SAKSHAM forensic engine inspecting PDF text layers, OCR scans, QR codes, and SHA-256 duplicate collision signatures.
+                </p>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12 }}>
+                  <Badge tone="green">18 Bonafide Verified</Badge>
+                  <Badge tone="amber">1 Under Scrutiny (DOB Mismatch)</Badge>
+                  <Badge tone="red">1 Inter-State Collision Flag</Badge>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSakshamStudio(true)}
+                className="btn pri"
+                style={{ fontSize: 12, padding: '8px 16px' }}
+              >
+                Launch Verification Studio ➔
+              </button>
+            </div>
+          </Card>
+
           {/* Program Breakdown Table */}
-          <Card title="Approved programs & intake compliance">
+          <Card title="Approved programs & intake compliance" style={{ marginTop: 16 }}>
             {programRows.length > 0 ? (
               <Table
                 head={['Program', 'Sanctioned Intake', 'Regular Admitted', 'Supernumerary', 'Status']}
@@ -244,6 +281,13 @@ export const InstitutionDashboard: React.FC<InstitutionDashboardProps> = ({
           </Card>
         </>
       ) : null}
+
+      {showSakshamStudio && (
+        <SakshamScrutinyStudio
+          onClose={() => setShowSakshamStudio(false)}
+          role={user?.role || 'INSTITUTION_ADMIN'}
+        />
+      )}
     </Shell>
   );
 };

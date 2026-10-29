@@ -74,7 +74,6 @@ export const ROLE_CONFIGS: Record<string, RolePortalConfig> = {
       {
         group: 'Compliance & Verification',
         items: [
-          { id: 'reports', label: 'Enrolment Reports' },
           { id: 'complaints-review', label: 'Student Grievance Inbox' },
           { id: 'verify', label: 'Credential Verifier' }
         ]

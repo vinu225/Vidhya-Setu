@@ -23,7 +23,7 @@ import './apaar.css';
 // Strict tab permission whitelist per stakeholder role
 const ROLE_ALLOWED_TABS: Record<string, string[]> = {
   AICTE_ADMIN: ['dashboard', 'intake', 'anomalies', 'graph', 'reports', 'audit', 'health', 'verify', 'complaints-review'],
-  INSTITUTION_ADMIN: ['institution', 'registry', 'upload', 'intake', 'reports', 'verify', 'complaints-review'],
+  INSTITUTION_ADMIN: ['institution', 'registry', 'upload', 'intake', 'verify', 'complaints-review'],
   DATA_ENTRY_OFFICER: ['institution', 'registry', 'upload', 'verify'],
   EXTERNAL_VERIFIER: ['verify', 'complaints-review'],
   AUDITOR: ['dashboard', 'intake', 'anomalies', 'reports', 'audit', 'verify', 'complaints-review'],
