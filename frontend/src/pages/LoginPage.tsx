@@ -201,6 +201,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     >
                       Verifier
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setDemoCredentials('student_demo', 'Student@123')}
+                      className="btn"
+                      style={{ fontSize: 11, padding: '4px 8px', borderColor: '#0F766E', color: '#0F766E' }}
+                    >
+                      Student (Rahul)
+                    </button>
                   </div>
                 </div>
 

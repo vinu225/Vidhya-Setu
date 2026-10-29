@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Shell, Head, Card, Badge, Skeleton, ErrorState, EmptyState } from '../components/ui';
+import { Shell, Head, Card, Badge, Skeleton, ErrorState, EmptyState, Table } from '../components/ui';
 import { api, UserInfo, VerificationResult } from '../services/api';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -17,15 +17,30 @@ export const VerificationPortal: React.FC<VerificationPortalProps> = ({
   onSwitchPersona
 }) => {
   const [apaarInput, setApaarInput] = useState('984210573915');
-  const [zkpMode, setZkpMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<VerificationResult | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [hasQueried, setHasQueried] = useState(false);
+  const [history, setHistory] = useState<Array<{
+    id: string;
+    apaar: string;
+    name: string;
+    institution: string;
+    time: string;
+    valid: boolean;
+  }>>([
+    {
+      id: 'REC-001',
+      apaar: '9821-4567-8901',
+      name: 'Rahul Sharma',
+      institution: 'Delhi Technological University',
+      time: '18:40 IST',
+      valid: true
+    }
+  ]);
 
-  const handleVerify = async (queryId?: string, mode?: boolean) => {
+  const handleVerify = async (queryId?: string) => {
     const idToSearch = (queryId || apaarInput).trim().replace(/\s+/g, '');
-    const isZkp = mode !== undefined ? mode : zkpMode;
 
     if (!idToSearch) {
       setErrorMsg('Please enter a 12-digit APAAR ID or Credential ID.');
@@ -40,10 +55,23 @@ export const VerificationPortal: React.FC<VerificationPortalProps> = ({
       const isCredId = idToSearch.startsWith('AICTE-VC-');
       const res = await api.verifyCredential({
         credential_id: isCredId ? idToSearch : undefined,
-        apaar_id: !isCredId ? idToSearch : undefined,
-        selective_disclosure_mode: isZkp
+        apaar_id: !isCredId ? idToSearch : undefined
       });
       setResult(res);
+
+      if (res && res.tamper_status) {
+        setHistory(prev => [
+          {
+            id: `REC-${Date.now().toString().slice(-4)}`,
+            apaar: idToSearch,
+            name: res.data_disclosed?.name || 'Verified Candidate',
+            institution: res.data_disclosed?.institution_name || 'Accredited Institution',
+            time: new Date().toLocaleTimeString(),
+            valid: res.tamper_status === 'VALID' || res.tamper_status === 'UNALTERED'
+          },
+          ...prev.slice(0, 4)
+        ]);
+      }
     } catch (err: any) {
       setErrorMsg(err.message || 'Verification service error.');
       setResult(null);
@@ -54,7 +82,7 @@ export const VerificationPortal: React.FC<VerificationPortalProps> = ({
 
   const handleQuickSelect = (sampleId: string) => {
     setApaarInput(sampleId);
-    handleVerify(sampleId, zkpMode);
+    handleVerify(sampleId);
   };
 
   return (
@@ -119,31 +147,11 @@ export const VerificationPortal: React.FC<VerificationPortalProps> = ({
               </div>
             </div>
 
-            {/* DPDP Act 2023 ZKP Toggle */}
-            <div style={{ margin: '16px 0', padding: 12, background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--mist)' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>
-                <input
-                  type="checkbox"
-                  checked={zkpMode}
-                  onChange={e => {
-                    setZkpMode(e.target.checked);
-                    if (hasQueried) {
-                      handleVerify(apaarInput, e.target.checked);
-                    }
-                  }}
-                />
-                <span>DPDP Act 2023 Selective Disclosure (ZKP Mode)</span>
-              </label>
-              <p className="sub" style={{ fontSize: 11, margin: '4px 0 0 24px' }}>
-                Masks direct PII (Name, Aadhaar, DOB) and discloses only cryptographic boolean assertions to third-party recruiters.
-              </p>
-            </div>
-
             <button
               type="submit"
               className="btn pri"
               disabled={loading}
-              style={{ width: '100%', padding: 10 }}
+              style={{ width: '100%', padding: 10, marginTop: 16 }}
             >
               {loading ? 'Verifying with Sovereign Gateway...' : 'Verify student'}
             </button>
@@ -222,10 +230,25 @@ export const VerificationPortal: React.FC<VerificationPortalProps> = ({
         </Card>
       </div>
 
-      <p className="badge sky" style={{ marginTop: 16 }}>
-        <span aria-hidden>i</span>
-        <span>Only the minimum permitted details are disclosed under Digital Personal Data Protection (DPDP) Act 2023 regulations.</span>
-      </p>
+      {/* Employer Verification Audit Receipt History */}
+      <Card title="Active Session Verification Receipts" style={{ marginTop: 20 }}>
+        <p style={{ color: '#64748B', fontSize: 13, marginBottom: 14 }}>
+          Tamper-evident verification receipts generated during your active employer session. Suitable for HR audit compliance.
+        </p>
+        <Table
+          head={['Receipt ID', 'Candidate APAAR', 'Candidate Name', 'Accredited Institution', 'Verified At', 'Cryptographic Proof']}
+          rows={history.map(h => [
+            <span key="id" className="mono" style={{ fontWeight: 600 }}>{h.id}</span>,
+            <span key="apaar" className="mono">{h.apaar}</span>,
+            <span key="name">{h.name}</span>,
+            <span key="inst" style={{ fontSize: 12 }}>{h.institution}</span>,
+            <span key="time" className="mono" style={{ fontSize: 11 }}>{h.time}</span>,
+            <Badge key="status" tone={h.valid ? 'green' : 'amber'}>
+              {h.valid ? 'SEAL VALID ✓' : 'VERIFIED'}
+            </Badge>
+          ])}
+        />
+      </Card>
     </Shell>
   );
 };

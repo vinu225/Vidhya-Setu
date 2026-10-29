@@ -22,18 +22,24 @@ export const InstitutionDashboard: React.FC<InstitutionDashboardProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const loadInstitutions = async () => {
-      try {
-        const insts = await api.getInstitutions();
-        setInstitutions(insts);
-        const defaultId = user?.institution_id || (insts[0]?.id || '');
-        setSelectedInstId(defaultId);
-      } catch (err: any) {
-        console.error('Failed to load institutions list', err);
-        setError(err.message || 'Failed to load institutions list.');
-      }
-    };
-    loadInstitutions();
+    if (user?.institution_id) {
+      setSelectedInstId(user.institution_id);
+      loadDetails(user.institution_id);
+    } else {
+      const loadInstitutions = async () => {
+        try {
+          const insts = await api.getInstitutions();
+          setInstitutions(insts);
+          if (insts.length > 0) {
+            setSelectedInstId(insts[0].id);
+          }
+        } catch (err: any) {
+          console.error('Failed to load institutions list', err);
+          setError(err.message || 'Failed to load institutions list.');
+        }
+      };
+      loadInstitutions();
+    }
   }, [user]);
 
   const loadDetails = async (id: string) => {

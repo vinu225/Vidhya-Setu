@@ -16,7 +16,6 @@ export const AicteDashboard: React.FC<AicteDashboardProps> = ({
   onSwitchPersona
 }) => {
   const [overview, setOverview] = useState<NationalOverview | null>(null);
-  const [institutions, setInstitutions] = useState<Institution[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState<boolean>(false);
@@ -25,12 +24,8 @@ export const AicteDashboard: React.FC<AicteDashboardProps> = ({
     try {
       setLoading(true);
       setError(null);
-      const [overviewData, instData] = await Promise.all([
-        api.getNationalOverview(),
-        api.getInstitutions()
-      ]);
+      const overviewData = await api.getNationalOverview();
       setOverview(overviewData);
-      setInstitutions(instData);
     } catch (err: any) {
       console.error('Failed to load AICTE Dashboard metrics:', err);
       setError(err.message || 'Could not connect to AICTE regulatory overview API.');
@@ -54,30 +49,24 @@ export const AicteDashboard: React.FC<AicteDashboardProps> = ({
     }
   };
 
-  // Prepare Bars data from top risk or high-enrolment institutions
+  // Prepare Bars data from top risk institutions
   const barRows: [string, number, number][] = (overview?.top_risk_institutions && overview.top_risk_institutions.length > 0)
     ? overview.top_risk_institutions.slice(0, 6).map(inst => [
         inst.name.length > 20 ? inst.name.slice(0, 18) + '…' : inst.name,
         inst.approved_intake,
         inst.actual_enrolled
       ])
-    : institutions.slice(0, 6).map(inst => [
-        inst.name.length > 20 ? inst.name.slice(0, 18) + '…' : inst.name,
-        inst.programs.reduce((sum, p) => sum + p.approved_regular_intake, 0),
-        inst.enrolled_count || 0
-      ]);
+    : [];
 
   // Institution Compliance summary table rows
-  const complianceRows = institutions.slice(0, 8).map(inst => {
-    const totalIntake = inst.programs.reduce((sum, p) => sum + p.approved_regular_intake, 0);
-    const enrolled = inst.enrolled_count || 0;
-    const isOver = totalIntake > 0 && enrolled > totalIntake;
-    const isNear = totalIntake > 0 && enrolled >= totalIntake * 0.9 && !isOver;
+  const complianceRows = (overview?.top_risk_institutions || []).slice(0, 8).map(inst => {
+    const isOver = inst.actual_enrolled > inst.approved_intake;
+    const isNear = inst.actual_enrolled >= inst.approved_intake * 0.9 && !isOver;
 
     const statusBadge = isOver ? (
-      <Badge tone="red">Over intake (+{enrolled - totalIntake})</Badge>
+      <Badge tone="red">Over intake (+{inst.actual_enrolled - inst.approved_intake})</Badge>
     ) : isNear ? (
-      <Badge tone="amber">Near cap ({Math.round((enrolled / totalIntake) * 100)}%)</Badge>
+      <Badge tone="amber">Near cap ({Math.round((inst.actual_enrolled / (inst.approved_intake || 1)) * 100)}%)</Badge>
     ) : (
       <Badge tone="green">Within intake</Badge>
     );
@@ -89,7 +78,7 @@ export const AicteDashboard: React.FC<AicteDashboardProps> = ({
           {inst.official_code} • {inst.state}
         </span>
       </span>,
-      <span className="mono">{enrolled.toLocaleString('en-IN')} / {totalIntake.toLocaleString('en-IN')}</span>,
+      <span className="mono">{inst.actual_enrolled.toLocaleString('en-IN')} / {inst.approved_intake.toLocaleString('en-IN')}</span>,
       statusBadge
     ];
   });

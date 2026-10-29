@@ -2,11 +2,10 @@ import React from 'react';
 import '../apaar.css';
 import { UserInfo } from '../services/api';
 
-// Navigation groups aligned with apaar design tokens & role permissions
+// Navigation items and groups aligned with APAAR design tokens & role permissions
 export interface NavItem {
   id: string;
   label: string;
-  roles?: string[]; // Allowed roles (undefined means all authenticated)
 }
 
 export interface NavGroup {
@@ -14,39 +13,154 @@ export interface NavGroup {
   items: NavItem[];
 }
 
-export const NAV_GROUPS: NavGroup[] = [
-  {
-    group: 'Overview',
-    items: [
-      { id: 'dashboard', label: 'AICTE Dashboard', roles: ['AICTE_ADMIN', 'AUDITOR'] },
-      { id: 'institution', label: 'Institution Portal', roles: ['AICTE_ADMIN', 'INSTITUTION_ADMIN', 'DATA_ENTRY_OFFICER'] }
+export interface RolePortalConfig {
+  portalTitle: string;
+  portalSubtitle: string;
+  badgeText: string;
+  badgeTone: 'sky' | 'green' | 'amber' | 'red';
+  icon: string;
+  groups: NavGroup[];
+}
+
+export const ROLE_CONFIGS: Record<string, RolePortalConfig> = {
+  AICTE_ADMIN: {
+    portalTitle: 'AICTE National HQ',
+    portalSubtitle: 'Central Repository & Surveillance',
+    badgeText: 'National Authority',
+    badgeTone: 'sky',
+    icon: '🏛️',
+    groups: [
+      {
+        group: 'Surveillance & Policy',
+        items: [
+          { id: 'dashboard', label: 'National Analytics' },
+          { id: 'intake', label: 'Intake Surveillance' },
+          { id: 'anomalies', label: 'Anomaly & Duplicate Center' },
+          { id: 'graph', label: 'Identity Collision Graph' }
+        ]
+      },
+      {
+        group: 'Trust & Governance',
+        items: [
+          { id: 'reports', label: 'Regulatory Reports' },
+          { id: 'audit', label: 'DPDP Audit Vault' },
+          { id: 'health', label: 'Infrastructure Probes' }
+        ]
+      },
+      {
+        group: 'Verification Tool',
+        items: [
+          { id: 'verify', label: 'Credential Verifier' }
+        ]
+      }
     ]
   },
-  {
-    group: 'Student data',
-    items: [
-      { id: 'registry', label: 'Student Registry', roles: ['AICTE_ADMIN', 'INSTITUTION_ADMIN', 'DATA_ENTRY_OFFICER', 'AUDITOR'] },
-      { id: 'upload', label: 'Bulk Upload', roles: ['AICTE_ADMIN', 'INSTITUTION_ADMIN', 'DATA_ENTRY_OFFICER'] }
+  INSTITUTION_ADMIN: {
+    portalTitle: 'Institution Portal',
+    portalSubtitle: 'College Admissions & Quotas',
+    badgeText: 'Campus Node',
+    badgeTone: 'green',
+    icon: '🎓',
+    groups: [
+      {
+        group: 'Campus Operations',
+        items: [
+          { id: 'institution', label: 'College Overview' },
+          { id: 'registry', label: 'Student Registry' },
+          { id: 'upload', label: 'Bulk CSV Ingestion' },
+          { id: 'intake', label: 'Program Intake Status' }
+        ]
+      },
+      {
+        group: 'Compliance & Verification',
+        items: [
+          { id: 'reports', label: 'Enrolment Reports' },
+          { id: 'verify', label: 'Credential Verifier' }
+        ]
+      }
     ]
   },
-  {
-    group: 'Surveillance & operations',
-    items: [
-      { id: 'anomalies', label: 'Anomaly & Fraud', roles: ['AICTE_ADMIN', 'INSTITUTION_ADMIN', 'AUDITOR'] },
-      { id: 'intake', label: 'Intake Monitoring', roles: ['AICTE_ADMIN', 'INSTITUTION_ADMIN', 'AUDITOR'] },
-      { id: 'graph', label: 'Identity Graph', roles: ['AICTE_ADMIN', 'AUDITOR', 'INSTITUTION_ADMIN'] }
+  DATA_ENTRY_OFFICER: {
+    portalTitle: 'Admissions Desk',
+    portalSubtitle: 'Student Ingestion & Registration',
+    badgeText: 'DEO Officer',
+    badgeTone: 'green',
+    icon: '📝',
+    groups: [
+      {
+        group: 'Admissions Desk',
+        items: [
+          { id: 'institution', label: 'College Overview' },
+          { id: 'registry', label: 'Student Registry' },
+          { id: 'upload', label: 'Bulk CSV Ingestion' }
+        ]
+      },
+      {
+        group: 'Tools',
+        items: [
+          { id: 'verify', label: 'Credential Verifier' }
+        ]
+      }
     ]
   },
-  {
-    group: 'Trust & Governance',
-    items: [
-      { id: 'verify', label: 'Verification Portal' },
-      { id: 'reports', label: 'Reports & Exports', roles: ['AICTE_ADMIN', 'INSTITUTION_ADMIN', 'AUDITOR'] },
-      { id: 'audit', label: 'Audit Vault', roles: ['AICTE_ADMIN', 'AUDITOR'] },
-      { id: 'health', label: 'Integrations & Health' }
+  EXTERNAL_VERIFIER: {
+    portalTitle: 'Employer Trust Gateway',
+    portalSubtitle: 'Authorized Credential Verification',
+    badgeText: 'Authorized Verifier',
+    badgeTone: 'sky',
+    icon: '🔍',
+    groups: [
+      {
+        group: 'Verification Services',
+        items: [
+          { id: 'verify', label: 'Verify Student Credential' },
+          { id: 'health', label: 'Verification Node Health' }
+        ]
+      }
+    ]
+  },
+  AUDITOR: {
+    portalTitle: 'Regulatory Oversight',
+    portalSubtitle: 'Audit & Compliance Directorate',
+    badgeText: 'Audit Access',
+    badgeTone: 'amber',
+    icon: '⚖️',
+    groups: [
+      {
+        group: 'Accreditation & Oversight',
+        items: [
+          { id: 'dashboard', label: 'National Overview' },
+          { id: 'intake', label: 'Accredited Intake Monitor' },
+          { id: 'anomalies', label: 'Forensic Anomaly Review' },
+          { id: 'reports', label: 'Regulatory Compliance Reports' },
+          { id: 'audit', label: 'DPDP Immutable Audit Vault' }
+        ]
+      },
+      {
+        group: 'Tools',
+        items: [
+          { id: 'verify', label: 'Credential Verifier' }
+        ]
+      }
+    ]
+  },
+  STUDENT: {
+    portalTitle: 'APAAR Citizen Wallet',
+    portalSubtitle: 'Student Privacy & Credential Manager',
+    badgeText: 'Verified Citizen',
+    badgeTone: 'green',
+    icon: '🪪',
+    groups: [
+      {
+        group: 'My Credentials',
+        items: [
+          { id: 'student-portal', label: 'My Digital APAAR Card' },
+          { id: 'verify', label: 'Public Verifier Preview' }
+        ]
+      }
     ]
   }
-];
+};
 
 // Helper to normalize tab IDs between router conventions
 export const normalizeTabId = (tab: string): string => {
@@ -62,7 +176,10 @@ export const normalizeTabId = (tab: string): string => {
     'public-verify': 'verify',
     'regulatory-reports': 'reports',
     'dpdp-audit': 'audit',
-    'system-health': 'health'
+    'system-health': 'health',
+    'consent-manager': 'student-portal',
+    'share-credentials': 'student-portal',
+    'access-log': 'student-portal'
   };
   return map[tab] || tab;
 };
@@ -79,13 +196,14 @@ export const denormalizeTabId = (tab: string): string => {
     'verify': 'public-verify',
     'reports': 'regulatory-reports',
     'audit': 'dpdp-audit',
-    'health': 'system-health'
+    'health': 'system-health',
+    'student-portal': 'student-portal'
   };
   return map[tab] || tab;
 };
 
 // ------------------------------------------------------------------------------
-// Shell Component (Persistent Sidebar + Main Layout with Role Filtering)
+// Shell Component (Role-Scoped Sidebar + Main Layout)
 // ------------------------------------------------------------------------------
 interface ShellProps {
   active: string;
@@ -106,6 +224,7 @@ export const Shell: React.FC<ShellProps> = ({
 }) => {
   const currentNorm = normalizeTabId(active);
   const userRole = user?.role || 'AICTE_ADMIN';
+  const roleConfig = ROLE_CONFIGS[userRole] || ROLE_CONFIGS.AICTE_ADMIN;
 
   const handleNavClick = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
@@ -118,39 +237,46 @@ export const Shell: React.FC<ShellProps> = ({
     <div className="ap">
       <div className="shell">
         <aside className="side">
-          {/* Brand */}
-          <div className="brand">
-            <i>✓</i>
-            <span>APAAR-Verify</span>
+          {/* Brand Header Scoped to Role */}
+          <div className="brand" style={{ borderBottom: '1px solid #1e3a5f', paddingBottom: 14, marginBottom: 16 }}>
+            <span style={{ fontSize: 20 }}>{roleConfig.icon}</span>
+            <div style={{ marginLeft: 8 }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#fff', display: 'block', lineHeight: 1.2 }}>
+                {roleConfig.portalTitle}
+              </span>
+              <span style={{ fontSize: 10, color: '#94A3B8', display: 'block', marginTop: 2 }}>
+                {user?.institution_name || roleConfig.portalSubtitle}
+              </span>
+            </div>
           </div>
 
-          {/* Navigation Items Filtered by Role */}
-          {NAV_GROUPS.map(({ group, items }) => {
-            const visibleItems = items.filter(
-              item => !item.roles || item.roles.includes(userRole)
-            );
-            if (visibleItems.length === 0) return null;
+          {/* Role Badge Indicator */}
+          <div style={{ padding: '0 8px 14px' }}>
+            <Badge tone={roleConfig.badgeTone}>
+              {roleConfig.badgeText}
+            </Badge>
+          </div>
 
-            return (
-              <div key={group} style={{ marginBottom: 12 }}>
-                <div className="eyebrow">{group}</div>
-                {visibleItems.map(item => {
-                  const isActive = currentNorm === item.id;
-                  return (
-                    <a
-                      key={item.id}
-                      href={`/${item.id}`}
-                      onClick={e => handleNavClick(e, item.id)}
-                      className={isActive ? 'on' : ''}
-                      aria-current={isActive ? 'page' : undefined}
-                    >
-                      {item.label}
-                    </a>
-                  );
-                })}
-              </div>
-            );
-          })}
+          {/* Navigation Items Filtered Strictly by Dedicated Role Configuration */}
+          {roleConfig.groups.map(({ group, items }) => (
+            <div key={group} style={{ marginBottom: 14 }}>
+              <div className="eyebrow">{group}</div>
+              {items.map(item => {
+                const isActive = currentNorm === item.id;
+                return (
+                  <a
+                    key={item.id}
+                    href={`/${item.id}`}
+                    onClick={e => handleNavClick(e, item.id)}
+                    className={isActive ? 'on' : ''}
+                    aria-current={isActive ? 'page' : undefined}
+                  >
+                    {item.label}
+                  </a>
+                );
+              })}
+            </div>
+          ))}
 
           {/* User Status / Persona Switcher */}
           {user && (
@@ -169,15 +295,16 @@ export const Shell: React.FC<ShellProps> = ({
                     Switch Persona
                   </label>
                   <select
-                    style={{ width: '100%', padding: '4px 8px', fontSize: 11, background: '#071A31', color: '#CBD5E1', border: '1px solid #1e3a5f' }}
+                    style={{ width: '100%', padding: '6px 8px', fontSize: 11, background: '#071A31', color: '#CBD5E1', border: '1px solid #1e3a5f', borderRadius: 6 }}
                     value={user.username}
                     onChange={e => onSwitchPersona(e.target.value)}
                   >
-                    <option value="aicte_admin">AICTE Admin</option>
-                    <option value="dtu_admin">DTU Registrar</option>
-                    <option value="knit_deo">KNIT Data Entry</option>
-                    <option value="auditor">Auditor</option>
-                    <option value="verifier">External Verifier</option>
+                    <option value="aicte_admin">AICTE National Admin</option>
+                    <option value="dtu_admin">DTU Registrar (Institution)</option>
+                    <option value="knit_deo">KNIT Data Entry Officer</option>
+                    <option value="verifier">Corporate Verifier (Employer)</option>
+                    <option value="auditor">Regulatory Officer / Auditor</option>
+                    <option value="student_demo">Student (Rahul Sharma)</option>
                   </select>
                 </div>
               )}
