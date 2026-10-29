@@ -298,5 +298,19 @@ export const api = {
 
   async getIntegrationsHealth(): Promise<any> {
     return apiRequest<any>("/health/integrations");
+  },
+
+  // AICTE Auditor Co-Pilot (Qwen 8B)
+  async queryCopilot(message: string, language: string = "en", history: any[] = []): Promise<any> {
+    return apiRequest<any>("/copilot/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message, language, history })
+    });
+  },
+
+  async getCopilotContext(): Promise<any> {
+    return apiRequest<any>("/copilot/context");
   }
 };
+

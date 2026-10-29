@@ -3,18 +3,24 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import { ClerkProvider } from '@clerk/react'
+import { LanguageProvider } from './i18n/LanguageContext'
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
 
 const Root = () => {
+  const content = (
+    <LanguageProvider>
+      <App />
+    </LanguageProvider>
+  )
   if (PUBLISHABLE_KEY) {
     return (
       <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/">
-        <App />
+        {content}
       </ClerkProvider>
     )
   }
-  return <App />
+  return content
 }
 
 createRoot(document.getElementById('root')!).render(
@@ -22,3 +28,4 @@ createRoot(document.getElementById('root')!).render(
     <Root />
   </StrictMode>,
 )
+

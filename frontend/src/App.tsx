@@ -14,6 +14,7 @@ import { VerificationPortal } from './pages/VerificationPortal';
 import { ReportsPage } from './pages/ReportsPage';
 import { AuditVault } from './pages/AuditVault';
 import { IntegrationsHealth } from './pages/IntegrationsHealth';
+import { AuditorCopilot } from './components/AuditorCopilot';
 
 export const App: React.FC = () => {
   const [user, setUser] = useState<UserInfo | null>(getStoredUser());
@@ -103,6 +104,9 @@ export const App: React.FC = () => {
           {currentTab === "system-health" && <IntegrationsHealth />}
         </main>
       </div>
+
+      {/* Floating AICTE Auditor Co-Pilot (Qwen 8B) */}
+      <AuditorCopilot />
     </div>
   );
 };

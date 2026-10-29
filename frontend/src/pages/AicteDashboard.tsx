@@ -10,10 +10,12 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, 
   CartesianGrid, Legend, PieChart, Pie, Cell 
 } from 'recharts';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface AicteDashboardProps {
   onNavigateTab?: (tab: string) => void;
 }
+
 
 // Lightweight, crisp SVG Sparkline for KPI trends
 const Sparkline: React.FC<{ data: number[]; color: string; height?: number }> = ({ data, color, height = 24 }) => {
@@ -46,6 +48,7 @@ const Sparkline: React.FC<{ data: number[]; color: string; height?: number }> = 
 };
 
 export const AicteDashboard: React.FC<AicteDashboardProps> = ({ onNavigateTab }) => {
+  const { t } = useLanguage();
   const [overview, setOverview] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [scanLoading, setScanLoading] = useState(false);
@@ -155,10 +158,10 @@ export const AicteDashboard: React.FC<AicteDashboardProps> = ({ onNavigateTab })
         <div>
           <div className="flex items-center space-x-2.5">
             <span className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase bg-blue-600 text-white shadow-sm">
-              Regulatory HQ
+              {t('regulatory_hq')}
             </span>
             <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40">
-              Demo data (synthetic)
+              {t('demo_data')}
             </span>
             <span className="text-slate-400 text-xs font-mono">AY {academicYear}</span>
           </div>
@@ -166,7 +169,7 @@ export const AicteDashboard: React.FC<AicteDashboardProps> = ({ onNavigateTab })
             AICTE National Student Surveillance & Verification HQ
           </h1>
           <p className="text-slate-300 text-xs max-w-2xl mt-0.5 line-clamp-1">
-            Real-time APAAR parity verification, autonomous cross-institution collision surveillance, and supernumerary quota audit.
+            {t('sub_title')}
           </p>
         </div>
 
@@ -178,7 +181,7 @@ export const AicteDashboard: React.FC<AicteDashboardProps> = ({ onNavigateTab })
             className="flex items-center space-x-2 px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-md transition-all disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-400"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${scanLoading ? "animate-spin" : ""}`} />
-            <span>{scanLoading ? "Scanning Network..." : "Run National Integrity Scan"}</span>
+            <span>{scanLoading ? t('scanning') : t('run_scan')}</span>
           </button>
 
           <button
@@ -187,7 +190,7 @@ export const AicteDashboard: React.FC<AicteDashboardProps> = ({ onNavigateTab })
             className="flex items-center space-x-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-slate-400"
           >
             <Download className="w-3.5 h-3.5 text-blue-400" />
-            <span>Export APH Report</span>
+            <span>{t('export_aph')}</span>
           </button>
         </div>
       </div>
@@ -290,7 +293,7 @@ export const AicteDashboard: React.FC<AicteDashboardProps> = ({ onNavigateTab })
         {/* KPI 1: Approved Colleges */}
         <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
-            <span>Colleges</span>
+            <span>{t('colleges')}</span>
             <Building2 className="w-4 h-4 text-blue-600" />
           </div>
           <div className="my-1.5 flex items-baseline justify-between">
@@ -300,7 +303,7 @@ export const AicteDashboard: React.FC<AicteDashboardProps> = ({ onNavigateTab })
             <Sparkline data={[34, 36, 38, 39, 41]} color="#2563EB" />
           </div>
           <div className="text-[11px] text-emerald-700 font-semibold flex items-center justify-between">
-            <span>{overview.total_institutions > 0 ? "✓ 100% Onboarded" : "No data yet"}</span>
+            <span>{overview.total_institutions > 0 ? `✓ 100% ${t('onboarded')}` : "No data yet"}</span>
             <span className="text-slate-400 font-mono text-[10px]">+7.3% LY</span>
           </div>
         </div>
@@ -308,7 +311,7 @@ export const AicteDashboard: React.FC<AicteDashboardProps> = ({ onNavigateTab })
         {/* KPI 2: Sanctioned Core Intake */}
         <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
-            <span>Sanctioned Seats</span>
+            <span>{t('sanctioned_seats')}</span>
             <TrendingUp className="w-4 h-4 text-indigo-600" />
           </div>
           <div className="my-1.5 flex items-baseline justify-between">
@@ -326,7 +329,7 @@ export const AicteDashboard: React.FC<AicteDashboardProps> = ({ onNavigateTab })
         {/* KPI 3: Actual Enrolled */}
         <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
-            <span>Actual Admitted</span>
+            <span>{t('actual_admitted')}</span>
             <Users className="w-4 h-4 text-teal-600" />
           </div>
           <div className="my-1.5 flex items-baseline justify-between">
@@ -344,7 +347,7 @@ export const AicteDashboard: React.FC<AicteDashboardProps> = ({ onNavigateTab })
         {/* KPI 4: Supernumerary Seats */}
         <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
-            <span>Supernumerary</span>
+            <span>{t('supernumerary')}</span>
             <Layers className="w-4 h-4 text-amber-600" />
           </div>
           <div className="my-1.5 flex items-baseline justify-between">
@@ -361,7 +364,7 @@ export const AicteDashboard: React.FC<AicteDashboardProps> = ({ onNavigateTab })
         {/* KPI 5: EXCESS INTAKE (NEW) */}
         <div className="bg-white p-3.5 rounded-xl border border-rose-300 shadow-sm bg-rose-50/20 flex flex-col justify-between hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between text-rose-700 text-xs font-bold">
-            <span>Excess Intake</span>
+            <span>{t('excess_intake')}</span>
             <AlertOctagon className="w-4 h-4 text-rose-600" />
           </div>
           <div className="my-1.5 flex items-baseline justify-between">
@@ -380,7 +383,7 @@ export const AicteDashboard: React.FC<AicteDashboardProps> = ({ onNavigateTab })
         {/* KPI 6: PROVISIONAL / GRACE PERIOD (NEW) */}
         <div className="bg-white p-3.5 rounded-xl border border-amber-300 shadow-sm bg-amber-50/20 flex flex-col justify-between hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between text-amber-800 text-xs font-bold">
-            <span>Provisional Seats</span>
+            <span>{t('provisional_seats')}</span>
             <Clock className="w-4 h-4 text-amber-600" />
           </div>
           <div className="my-1.5 flex items-baseline justify-between">
@@ -405,7 +408,7 @@ export const AicteDashboard: React.FC<AicteDashboardProps> = ({ onNavigateTab })
           <div className="flex items-center justify-between text-xs font-bold text-white/90">
             <span className="flex items-center gap-1">
               <ShieldAlert className="w-4 h-4 text-white animate-pulse" />
-              <span>Fraud Alerts</span>
+              <span>{t('fraud_alerts')}</span>
             </span>
             <ArrowUpRight className="w-4 h-4 text-white/80 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
           </div>
@@ -441,7 +444,7 @@ export const AicteDashboard: React.FC<AicteDashboardProps> = ({ onNavigateTab })
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
             <div>
               <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <span>State-wise Sanctioned Intake vs Actual Enrolment</span>
+                <span>{t('intake_vs_enrolment')}</span>
                 <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
                   Red = Over Intake
                 </span>
@@ -506,7 +509,7 @@ export const AicteDashboard: React.FC<AicteDashboardProps> = ({ onNavigateTab })
         {/* Seat Category Distribution Donut Chart with Caps */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
           <div className="pb-3 border-b border-slate-100">
-            <h2 className="text-sm font-bold text-slate-900">Seat Category Breakdown</h2>
+            <h2 className="text-sm font-bold text-slate-900">{t('seat_category_breakdown')}</h2>
             <p className="text-xs text-slate-500">Supernumerary quotas evaluated against statutory APH ceilings</p>
           </div>
 
@@ -564,7 +567,7 @@ export const AicteDashboard: React.FC<AicteDashboardProps> = ({ onNavigateTab })
             <div>
               <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-600" />
-                <span>Top Institutions by Regulatory Risk Score</span>
+                <span>{t('top_risk_institutions')}</span>
               </h2>
               <p className="text-xs text-slate-500">Prioritized by AICTE Isolation Forest & Deterministic Intake Breaches</p>
             </div>
@@ -581,12 +584,12 @@ export const AicteDashboard: React.FC<AicteDashboardProps> = ({ onNavigateTab })
             <table className="w-full text-left text-xs" aria-label="Top Risk Institutions Table">
               <thead className="bg-slate-100/70 text-slate-700 font-bold uppercase text-[10px] border-b border-slate-200">
                 <tr>
-                  <th className="py-2.5 px-4">College</th>
-                  <th className="py-2.5 px-3">State</th>
+                  <th className="py-2.5 px-4">{t('colleges')}</th>
+                  <th className="py-2.5 px-3">{t('state')}</th>
                   <th className="py-2.5 px-3">Intake vs Enrolled</th>
                   <th className="py-2.5 px-3">Utilization</th>
-                  <th className="py-2.5 px-3">Risk Reason</th>
-                  <th className="py-2.5 px-3 text-right">Action</th>
+                  <th className="py-2.5 px-3">{t('risk_reason')}</th>
+                  <th className="py-2.5 px-3 text-right">{t('action')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -622,7 +625,7 @@ export const AicteDashboard: React.FC<AicteDashboardProps> = ({ onNavigateTab })
                           aria-label={`View details for ${inst.name}`}
                           className="px-2.5 py-1 bg-slate-100 hover:bg-blue-600 hover:text-white text-slate-700 rounded-lg text-[10px] font-bold transition-all border border-slate-300"
                         >
-                          Audit
+                          {t('audit')}
                         </button>
                       </td>
                     </tr>
@@ -638,10 +641,10 @@ export const AicteDashboard: React.FC<AicteDashboardProps> = ({ onNavigateTab })
           <div className="pb-3 border-b border-slate-100 flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <ShieldAlert className="w-4 h-4 text-rose-600" />
-              <h2 className="text-sm font-bold text-slate-900">Recent Surveillance Alerts</h2>
+              <h2 className="text-sm font-bold text-slate-900">{t('recent_alerts')}</h2>
             </div>
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800">
-              Live Feed
+              {t('live_feed')}
             </span>
           </div>
 

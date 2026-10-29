@@ -5,6 +5,8 @@ import {
   BarChart3
 } from 'lucide-react';
 import { UserInfo } from '../services/api';
+import { useLanguage } from '../i18n/LanguageContext';
+import { TranslationKey } from '../i18n/translations';
 
 interface SidebarProps {
   currentTab: string;
@@ -12,23 +14,32 @@ interface SidebarProps {
   user: UserInfo | null;
 }
 
+interface NavItemDef {
+  id: string;
+  label: string;
+  transKey: TranslationKey;
+  icon: React.ComponentType<{ className?: string }>;
+  show: boolean;
+}
+
 export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab, user }) => {
+  const { t } = useLanguage();
   const isAicteAdmin = user?.role === "AICTE_ADMIN" || user?.role === "AUDITOR";
   const isInstitution = user?.role === "INSTITUTION_ADMIN" || user?.role === "DATA_ENTRY_OFFICER";
 
-  const navItems = [
-    { id: "aicte-hq", label: "AICTE Regulatory HQ", icon: Building2, show: isAicteAdmin },
-    { id: "institution-portal", label: "Institution Portal", icon: GraduationCap, show: true },
-    { id: "student-registry", label: "Student Registry", icon: Users, show: true },
-    { id: "bulk-upload", label: "Bulk Upload Hub", icon: UploadCloud, show: isInstitution || isAicteAdmin },
-    { id: "anomaly-center", label: "Anomaly & Fraud Center", icon: AlertTriangle, show: true },
-    { id: "intake-monitor", label: "Intake Compliance", icon: BarChart3, show: true },
-    { id: "identity-graph", label: "Identity Graph (NetworkX)", icon: Network, show: true },
-    { id: "credential-manager", label: "Credentials & Badges", icon: Award, show: isAicteAdmin || isInstitution },
-    { id: "public-verify", label: "Public & Employer Verify", icon: Search, show: true },
-    { id: "regulatory-reports", label: "Reports & Exports", icon: FileText, show: true },
-    { id: "dpdp-audit", label: "DPDP Audit Vault", icon: Lock, show: isAicteAdmin },
-    { id: "system-health", label: "Integrations & Health", icon: Activity, show: true },
+  const navItems: NavItemDef[] = [
+    { id: "aicte-hq", label: "AICTE Regulatory HQ", transKey: "nav_aicte_hq", icon: Building2, show: isAicteAdmin },
+    { id: "institution-portal", label: "Institution Portal", transKey: "nav_institution_portal", icon: GraduationCap, show: true },
+    { id: "student-registry", label: "Student Registry", transKey: "nav_student_registry", icon: Users, show: true },
+    { id: "bulk-upload", label: "Bulk Upload Hub", transKey: "nav_bulk_upload", icon: UploadCloud, show: isInstitution || isAicteAdmin },
+    { id: "anomaly-center", label: "Anomaly & Fraud Center", transKey: "nav_anomaly_center", icon: AlertTriangle, show: true },
+    { id: "intake-monitor", label: "Intake Compliance", transKey: "nav_intake_monitor", icon: BarChart3, show: true },
+    { id: "identity-graph", label: "Identity Graph (NetworkX)", transKey: "nav_identity_graph", icon: Network, show: true },
+    { id: "credential-manager", label: "Credentials & Badges", transKey: "nav_credentials", icon: Award, show: isAicteAdmin || isInstitution },
+    { id: "public-verify", label: "Public & Employer Verify", transKey: "nav_verify", icon: Search, show: true },
+    { id: "regulatory-reports", label: "Reports & Exports", transKey: "nav_reports", icon: FileText, show: true },
+    { id: "dpdp-audit", label: "DPDP Audit Vault", transKey: "nav_audit_vault", icon: Lock, show: isAicteAdmin },
+    { id: "system-health", label: "Integrations & Health", transKey: "nav_health", icon: Activity, show: true },
   ];
 
   return (
@@ -57,6 +68,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab, use
         {navItems.filter(item => item.show).map(item => {
           const Icon = item.icon;
           const isActive = currentTab === item.id;
+          const translatedLabel = t(item.transKey) || item.label;
           return (
             <button
               key={item.id}
@@ -69,7 +81,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab, use
               }`}
             >
               <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? "text-white" : "text-slate-300"}`} />
-              <span className="truncate">{item.label}</span>
+              <span className="truncate">{translatedLabel}</span>
             </button>
           );
         })}
