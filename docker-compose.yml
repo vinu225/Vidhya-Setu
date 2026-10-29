@@ -1,27 +1,95 @@
+# ==============================================================================
+# EduVerify AI — Hackathon Docker Compose Orchestration
+# SIH Problem Statement ID: 26263 (AICTE Regulatory Automation)
+# ==============================================================================
+
 services:
+  # ----------------------------------------------------------------------------
+  # FastAPI Backend Service (Python 3.11 + SQLAlchemy + Scikit-Learn ML Anomaly)
+  # ----------------------------------------------------------------------------
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: eduverify_backend
+    restart: unless-stopped
     ports:
       - "8000:8000"
+    env_file:
+      - path: .env
+        required: false
     environment:
-      - DATABASE_URL=sqlite:///./eduverify.db
-      - SECRET_KEY=eduverify-ai-secret-key-sih-26263-production-safe-32b
+      - DATABASE_URL=${DATABASE_URL:-postgresql://eduverify_admin:EduVerifyAICTE2024!Secure@db.ezwpjrcqtgomjlclghyx.supabase.co:5432/postgres?sslmode=require}
+      - SECRET_KEY=${SECRET_KEY:-eduverify-ai-secret-key-sih-26263-production-safe-32b}
       - ACCESS_TOKEN_EXPIRE_MINUTES=1440
-    volumes:
-      - ./backend:/app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      - REFRESH_TOKEN_EXPIRE_DAYS=7
+      - MOCK_PROVIDERS_ENABLED=true
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - eduverify_net
 
+  # ----------------------------------------------------------------------------
+  # React + Vite Production Frontend (High-Performance Nginx SPA Server)
+  # ----------------------------------------------------------------------------
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=http://localhost:8000/api/v1
+        - VITE_CLERK_PUBLISHABLE_KEY=${VITE_CLERK_PUBLISHABLE_KEY:-pk_test_aW5jbHVkZWQtZWxlcGhhbnQtODYwMC5jbGVyay5hY2NvdW50cy5kZXYk}
     container_name: eduverify_frontend
+    restart: unless-stopped
     ports:
-      - "5173:5173"
-    environment:
-      - VITE_API_URL=http://localhost:8000/api/v1
+      - "5173:80"   # Hackathon default evaluation port
+      - "80:80"     # Standard HTTP port
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - eduverify_net
+
+  # ----------------------------------------------------------------------------
+  # Optional Standalone Offline Database (For air-gapped jury environments)
+  # Activate via: docker compose --profile offline up --build
+  # ----------------------------------------------------------------------------
+  db:
+    profiles: ["offline"]
+    image: postgres:16-alpine
+    container_name: eduverify_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: eduverify
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - eduverify_net
+
+networks:
+  eduverify_net:
+    driver: bridge
+    name: eduverify_network
+
+volumes:
+  pgdata:
+    driver: local

@@ -69,9 +69,39 @@ SIH_/
 └── README.md
 ```
 
+## 🐳 Docker Deployment (Hackathon Quick Launch)
+
+The entire platform is fully containerized with production-grade multi-stage Docker builds:
+- **FastAPI Backend**: Python 3.11 with SQLAlchemy, scikit-learn, and container healthchecks.
+- **Frontend SPA**: High-performance Nginx Alpine container (~25MB) with automatic client-side routing & gzip compression.
+- **Cloud Database Ready**: Connects automatically to Cloud Supabase PostgreSQL or falls back to internal storage.
+
+### One-Command Deployment
+
+```bash
+# Windows
+.\docker-start.bat
+
+# Linux / macOS
+chmod +x docker-start.sh && ./docker-start.sh
+
+# Or directly using Docker Compose:
+docker compose up --build -d
+```
+
+| Service | Local URL | Description |
+| :--- | :--- | :--- |
+| **AICTE Central Dashboard** | `http://localhost:5173` or `http://localhost:80` | Production React + Vite Nginx SPA |
+| **FastAPI Swagger Docs** | `http://localhost:8000/docs` | Interactive OpenAPI Specifications |
+| **Backend Health Probe** | `http://localhost:8000/api/v1/health` | Container Liveness & DB Status Check |
+
+> **Air-Gapped / Offline Evaluation Mode:**  
+> If evaluating in a secure venue without internet, activate the standalone PostgreSQL 16 container:  
+> `docker compose --profile offline up --build -d`
+
 ---
 
-## 🏃 Quick Start & Local Execution
+## 🏃 Quick Start & Local Execution (Non-Docker)
 
 ### 1. Prerequisites
 - Python 3.10+ (Tested on Python 3.13)
