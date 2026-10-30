@@ -298,3 +298,4 @@ def generate_enrolment_certificate_pdf(
     )
 
     return b"".join(pdf)
+

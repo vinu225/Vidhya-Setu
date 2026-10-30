@@ -124,3 +124,4 @@ def submit_post_lock_exception(
 def is_window_locked() -> bool:
     """Helper used by upload services to enforce admission cutoff."""
     return _WINDOW_STATE["status"] == "LOCKED"
+

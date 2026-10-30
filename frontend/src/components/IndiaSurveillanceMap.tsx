@@ -286,3 +286,4 @@ export const IndiaSurveillanceMap: React.FC<IndiaSurveillanceMapProps> = ({
     </div>
   );
 };
+
