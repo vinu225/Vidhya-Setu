@@ -94,8 +94,8 @@ export const VerificationPortal: React.FC<VerificationPortalProps> = ({
       onSwitchPersona={onSwitchPersona}
     >
       <Head
-        eyebrow="External verification"
-        title="Verification portal"
+        eyebrow="Vidhya Setu • Sovereign Verification"
+        title="Vidhya Setu — Verification Portal"
         sub="Check student authenticity, active enrolment status, and tamper-proof credential seals with APAAR ID."
       />
 

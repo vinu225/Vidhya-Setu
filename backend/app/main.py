@@ -48,7 +48,7 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(
-    title="EduVerify AI — AICTE APAAR Student Verification Platform",
+    title="Vidhya Setu — AICTE APAAR Student Verification Platform",
     description="SIH Problem Statement 26263 | Regulation Bureau | Smart Automation",
     version="1.0.0",
     lifespan=lifespan
@@ -80,7 +80,7 @@ app.include_router(copilot.router, prefix=settings.API_V1_STR)
 @app.get("/")
 def root():
     return {
-        "platform": "EduVerify AI — AICTE APAAR Platform",
+        "platform": "Vidhya Setu — AICTE APAAR Platform",
         "problem_statement": "26263",
         "status": "ONLINE",
         "documentation": "/docs",

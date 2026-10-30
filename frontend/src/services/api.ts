@@ -243,8 +243,43 @@ export const getStoredUser = (): UserInfo | null => {
   return u ? JSON.parse(u) : null;
 };
 
-// Generic Fetcher
+// Client-side in-memory cache for instant (< 1ms) tab switching and zero-skeleton rendering
+interface CacheEntry<T> {
+  timestamp: number;
+  data: T;
+}
+
+const clientApiCache = new Map<string, CacheEntry<any>>();
+const CLIENT_CACHE_TTL_MS = 60 * 1000; // 60 seconds
+
+export const invalidateClientApiCache = (pattern?: string) => {
+  if (!pattern) {
+    clientApiCache.clear();
+  } else {
+    for (const key of clientApiCache.keys()) {
+      if (key.includes(pattern)) {
+        clientApiCache.delete(key);
+      }
+    }
+  }
+};
+
+// Generic Fetcher with sub-millisecond client caching
 async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const method = (options.method || "GET").toUpperCase();
+  const cacheKey = `${method}:${endpoint}`;
+
+  // If GET request, return cached response immediately if still fresh
+  if (method === "GET") {
+    const cached = clientApiCache.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp < CLIENT_CACHE_TTL_MS)) {
+      return cached.data as T;
+    }
+  } else {
+    // Non-GET mutation invalidates cached queries
+    invalidateClientApiCache();
+  }
+
   const token = getAuthToken();
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string> || {}),
@@ -270,7 +305,11 @@ async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promi
     throw new Error(errorDetail);
   }
 
-  return res.json();
+  const data = await res.json();
+  if (method === "GET") {
+    clientApiCache.set(cacheKey, { timestamp: Date.now(), data });
+  }
+  return data;
 }
 
 export const api = {
@@ -289,6 +328,7 @@ export const api = {
         institution_name: "Delhi Technological University"
       };
       const mockToken = "mock_student_jwt_token_dpdp_verified";
+      invalidateClientApiCache();
       setAuthToken(mockToken, studentUser);
       return { access_token: mockToken, user_info: studentUser };
     }
@@ -308,6 +348,7 @@ export const api = {
       throw new Error(err.detail || "Login failed");
     }
     const data = await res.json();
+    invalidateClientApiCache();
     setAuthToken(data.access_token, data.user_info);
     return data;
   },
@@ -320,6 +361,7 @@ export const api = {
     try {
       await apiRequest("/auth/logout", { method: "POST" });
     } finally {
+      invalidateClientApiCache();
       clearAuth();
     }
   },

@@ -8,11 +8,16 @@ from app.models.models import Institution, Program, Enrolment, ValidationIssue, 
 from app.schemas.schemas import InstitutionResponse, InstitutionCreate, ProgramResponse
 from app.security.security import get_current_user, require_roles, verify_institution_access
 from app.services.audit_service import AuditService
+from app.services.cache_service import cache
 
 router = APIRouter(prefix="/institutions", tags=["Institutions"])
 
 @router.get("", response_model=List[InstitutionResponse])
 def get_institutions(db: Session = Depends(get_db)):
+    cached = cache.get("all_institutions")
+    if cached is not None:
+        return cached
+
     institutions = db.query(Institution).options(selectinload(Institution.programs)).all()
 
     # Fast batch counts (3 queries total instead of 723 sequential queries)
@@ -57,6 +62,8 @@ def get_institutions(db: Session = Depends(get_db)):
             enrolled_count=enrolled_count,
             active_anomalies_count=issues_count + dup_count
         ))
+
+    cache.set("all_institutions", results, ttl=60)
     return results
 
 @router.get("/{id}", response_model=InstitutionResponse)

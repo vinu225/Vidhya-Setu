@@ -9,23 +9,29 @@ interface IdentityGraphViewProps {
   onSwitchPersona?: (username: string) => void;
 }
 
+// Module-level cache for instant tab loading
+let memoryCachedGraph: any = null;
+
 export const IdentityGraphView: React.FC<IdentityGraphViewProps> = ({
   user,
   onNavigateTab,
   onLogout,
   onSwitchPersona
 }) => {
-  const [graphData, setGraphData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [graphData, setGraphData] = useState<any>(memoryCachedGraph);
+  const [loading, setLoading] = useState(!memoryCachedGraph);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedNode, setSelectedNode] = useState<any>(null);
 
   const loadGraph = async () => {
     try {
-      setLoading(true);
+      if (!memoryCachedGraph) {
+        setLoading(true);
+      }
       setError(null);
       const res = await api.getCrossInstitutionGraph();
+      memoryCachedGraph = res;
       setGraphData(res);
 
       // Select first collision node by default if available
@@ -50,54 +56,121 @@ export const IdentityGraphView: React.FC<IdentityGraphViewProps> = ({
   // Compute 2D node coordinates in SVG space
   const layoutNodes = useMemo(() => {
     if (!graphData?.nodes) return [];
-    const nodes = graphData.nodes.slice(0, 20); // Render prime surveillance cluster
+
+    const allNodes: any[] = graphData.nodes || [];
+    const allLinks: any[] = graphData.links || graphData.edges || [];
+
+    // Prioritize collision student nodes and their connected institutions / programs
+    const collisionStudents = allNodes.filter((n: any) => n.is_collision || n.id?.includes('COLLISION'));
+    const collisionIds = new Set(collisionStudents.map((n: any) => n.id));
+
+    // Connected links
+    const relevantLinks = allLinks.filter((l: any) => collisionIds.has(l.source) || collisionIds.has(l.target));
+    const connectedIds = new Set<string>();
+    relevantLinks.forEach((l: any) => {
+      connectedIds.add(l.source);
+      connectedIds.add(l.target);
+    });
+
+    // Also get institution nodes that offer these programs
+    allLinks.forEach((l: any) => {
+      if (connectedIds.has(l.target) && l.source.startsWith('INST_')) {
+        connectedIds.add(l.source);
+      }
+      if (connectedIds.has(l.source) && l.target.startsWith('INST_')) {
+        connectedIds.add(l.target);
+      }
+    });
+
+    // Subgraph nodes: collision students + connected programs + institutions + background nodes
+    let primeNodes = allNodes.filter((n: any) => collisionIds.has(n.id) || connectedIds.has(n.id));
+    if (primeNodes.length < 8) {
+      const rest = allNodes.filter((n: any) => !collisionIds.has(n.id) && !connectedIds.has(n.id));
+      primeNodes = [...primeNodes, ...rest.slice(0, 16 - primeNodes.length)];
+    } else if (primeNodes.length > 24) {
+      primeNodes = primeNodes.slice(0, 24);
+    }
+
     const width = 640;
     const height = 360;
     const centerX = width / 2;
     const centerY = height / 2;
 
-    return nodes.map((node: any, idx: number) => {
-      let x = centerX;
-      let y = centerY;
+    const instNodes = primeNodes.filter((n: any) => (n.node_type || n.type) === 'INSTITUTION');
+    const studNodes = primeNodes.filter((n: any) => (n.node_type || n.type) === 'STUDENT');
+    const progNodes = primeNodes.filter((n: any) => (n.node_type || n.type) === 'PROGRAM');
 
-      if (node.is_collision || node.id?.includes('COLLISION')) {
-        x = centerX + (idx % 2 === 0 ? 120 : -120);
-        y = centerY + (idx % 2 === 0 ? 60 : -60);
-      } else if (node.type === 'INSTITUTION') {
-        const angle = (idx / nodes.length) * 2 * Math.PI;
-        x = centerX + Math.cos(angle) * 220;
-        y = centerY + Math.sin(angle) * 120;
-      } else {
-        const angle = (idx / nodes.length) * 2 * Math.PI;
-        x = centerX + Math.cos(angle) * 140;
-        y = centerY + Math.sin(angle) * 80;
-      }
+    const mapped: any[] = [];
 
-      return {
+    // Institutions on the periphery (outer ring)
+    instNodes.forEach((node: any, idx: number) => {
+      const angle = (idx / Math.max(instNodes.length, 1)) * 2 * Math.PI - Math.PI / 2;
+      mapped.push({
         ...node,
-        x: Math.max(40, Math.min(width - 40, x)),
-        y: Math.max(30, Math.min(height - 30, y))
-      };
+        x: Math.round(centerX + Math.cos(angle) * 220),
+        y: Math.round(centerY + Math.sin(angle) * 130)
+      });
     });
+
+    // Programs in the intermediate ring
+    progNodes.forEach((node: any, idx: number) => {
+      const angle = (idx / Math.max(progNodes.length, 1)) * 2 * Math.PI - Math.PI / 4;
+      mapped.push({
+        ...node,
+        x: Math.round(centerX + Math.cos(angle) * 140),
+        y: Math.round(centerY + Math.sin(angle) * 85)
+      });
+    });
+
+    // Students at center / inner cluster
+    studNodes.forEach((node: any, idx: number) => {
+      const offset = (idx - (studNodes.length - 1) / 2) * 55;
+      mapped.push({
+        ...node,
+        x: Math.round(centerX + offset),
+        y: Math.round(centerY + (idx % 2 === 0 ? 25 : -25))
+      });
+    });
+
+    // Any remaining nodes
+    const positionedIds = new Set(mapped.map((n: any) => n.id));
+    primeNodes.forEach((node: any, idx: number) => {
+      if (!positionedIds.has(node.id)) {
+        mapped.push({
+          ...node,
+          x: Math.round(centerX + (idx % 2 === 0 ? 100 : -100)),
+          y: Math.round(centerY + (idx % 2 === 0 ? 80 : -80))
+        });
+      }
+    });
+
+    return mapped.map((n: any) => ({
+      ...n,
+      x: Math.max(45, Math.min(width - 45, n.x)),
+      y: Math.max(35, Math.min(height - 35, n.y))
+    }));
   }, [graphData]);
 
   // Compute edges between layout nodes
   const layoutEdges = useMemo(() => {
-    if (!graphData?.edges || layoutNodes.length === 0) return [];
+    const rawEdges: any[] = graphData?.links || graphData?.edges || [];
+    if (!rawEdges.length || layoutNodes.length === 0) return [];
+
     const nodeMap = new Map<string, any>(layoutNodes.map((n: any) => [n.id, n]));
 
-    return (graphData.edges as any[])
+    return rawEdges
       .map((edge: any) => {
         const src: any = nodeMap.get(edge.source);
         const tgt: any = nodeMap.get(edge.target);
         if (!src || !tgt) return null;
+        const isCollision = src.is_collision || tgt.is_collision || edge.relation === 'COLLISION';
         return {
           ...edge,
           x1: src.x,
           y1: src.y,
           x2: tgt.x,
           y2: tgt.y,
-          isCollision: edge.type === 'COLLISION' || edge.label?.includes('DUPLICATE')
+          isCollision
         };
       })
       .filter((e): e is NonNullable<typeof e> => Boolean(e));
@@ -150,12 +223,12 @@ export const IdentityGraphView: React.FC<IdentityGraphViewProps> = ({
         />
         <Kpi
           label="Topological links"
-          value={graphData?.total_edges || layoutEdges.length || '—'}
+          value={graphData?.total_links || graphData?.total_edges || layoutEdges.length || '—'}
           note={<span className="sub">Active admission relationships</span>}
         />
         <Kpi
           label="Collision clusters"
-          value={graphData?.duplicate_clusters || '5'}
+          value={graphData?.collision_clusters?.length ?? graphData?.collision_count ?? '5'}
           note={<Badge tone="red">Dual-enrolment flags</Badge>}
         />
       </div>
@@ -196,13 +269,15 @@ export const IdentityGraphView: React.FC<IdentityGraphViewProps> = ({
                   const isSelected = selectedNode?.id === node.id;
                   const isMatch = searchTerm && node.label?.toLowerCase().includes(searchTerm.toLowerCase());
                   const isCollision = node.is_collision || node.id?.includes('COLLISION');
+                  const nodeType = node.node_type || node.type || 'STUDENT';
 
                   let fill = '#0F766E'; // Student (Teal)
-                  if (node.type === 'INSTITUTION') fill = '#64748B'; // Institution (Slate)
+                  if (nodeType === 'INSTITUTION') fill = '#0B3B60'; // Institution (Navy/Slate)
+                  else if (nodeType === 'PROGRAM') fill = '#0D9488'; // Program (Teal)
                   if (isCollision) fill = '#B91C1C'; // Collision (Red)
                   if (isSelected || isMatch) fill = '#1D4ED8'; // Selected (Royal Blue)
 
-                  const radius = isCollision ? 22 : node.type === 'INSTITUTION' ? 20 : 16;
+                  const radius = isCollision ? 22 : nodeType === 'INSTITUTION' ? 20 : 15;
 
                   return (
                     <g
@@ -243,7 +318,7 @@ export const IdentityGraphView: React.FC<IdentityGraphViewProps> = ({
                 <i style={{ background: '#0F766E' }} />Student
               </span>
               <span>
-                <i style={{ background: '#64748B' }} />Institution
+                <i style={{ background: '#0B3B60' }} />Institution
               </span>
               <span>
                 <i style={{ background: '#B91C1C' }} />Duplicate link
@@ -263,13 +338,13 @@ export const IdentityGraphView: React.FC<IdentityGraphViewProps> = ({
                   <li>
                     <span>Node Type</span>
                     <Badge tone={selectedNode.is_collision ? 'red' : 'green'}>
-                      {selectedNode.is_collision ? 'Collision Link' : selectedNode.type || 'Student Node'}
+                      {selectedNode.is_collision ? 'Collision Student' : (selectedNode.node_type || selectedNode.type || 'Student Node')}
                     </Badge>
                   </li>
                   <li>
                     <span>Identifier</span>
                     <span className="mono" style={{ fontSize: 12 }}>
-                      {selectedNode.id?.slice(0, 18)}
+                      {selectedNode.pseudonymous_id || selectedNode.code || selectedNode.id?.slice(0, 18)}
                     </span>
                   </li>
                   <li>
@@ -279,7 +354,11 @@ export const IdentityGraphView: React.FC<IdentityGraphViewProps> = ({
                 </ul>
 
                 <p className="sub" style={{ marginTop: 16, fontSize: 12 }}>
-                  Topological bipartite path indicates simultaneous degree registrations across 2 distinct AICTE approved technical colleges.
+                  {selectedNode.is_collision
+                    ? 'Topological bipartite path indicates simultaneous degree registrations across 2 distinct AICTE approved technical colleges.'
+                    : (selectedNode.node_type === 'INSTITUTION'
+                      ? 'AICTE approved higher education campus offering monitored technical academic programs.'
+                      : 'Verified student academic identity node linked to national sovereign repository.')}
                 </p>
 
                 <div className="row" style={{ marginTop: 16 }}>

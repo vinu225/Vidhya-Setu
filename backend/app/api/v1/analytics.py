@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any
+from collections import defaultdict
+from datetime import datetime, timezone
 
 from app.database import get_db
 from app.models.models import (
@@ -11,12 +13,17 @@ from app.schemas.schemas import AnomalyAlertResponse, AnomalyAlertResolve, Intak
 from app.security.security import get_current_user, require_roles
 from app.services.intake_service import IntakeService
 from app.services.audit_service import AuditService
+from app.services.cache_service import cache
 
 router = APIRouter(prefix="/analytics", tags=["Analytics & Surveillance"])
 
 @router.get("/overview")
 def get_national_overview(db: Session = Depends(get_db)):
-    """Computes real aggregate metrics from backend database for AICTE Dashboard"""
+    """Computes real aggregate metrics from backend database for AICTE Dashboard with sub-10ms cache"""
+    cached_data = cache.get("national_overview")
+    if cached_data is not None:
+        return cached_data
+
     institutions = db.query(Institution).all()
     programs = db.query(Program).all()
     enrolments = db.query(Enrolment).filter(Enrolment.enrolment_status == "ACTIVE").all()
@@ -35,6 +42,16 @@ def get_national_overview(db: Session = Depends(get_db)):
     supernumerary_enrolled = sum(1 for e in enrolments if e.supernumerary_classification != "NONE")
     regular_enrolled = total_enrolled - supernumerary_enrolled
 
+    # O(1) indexed maps for high-performance aggregation
+    inst_by_id = {i.id: i for i in institutions}
+    programs_by_inst = defaultdict(list)
+    for p in programs:
+        programs_by_inst[p.institution_id].append(p)
+
+    enrolments_by_inst = defaultdict(list)
+    for e in enrolments:
+        enrolments_by_inst[e.institution_id].append(e)
+
     # State-wise distribution
     state_metrics = {}
     for inst in institutions:
@@ -48,16 +65,16 @@ def get_national_overview(db: Session = Depends(get_db)):
                 "anomalies": 0
             }
         state_metrics[st]["institutions"] += 1
-        inst_progs = [p for p in programs if p.institution_id == inst.id]
+        inst_progs = programs_by_inst.get(inst.id, [])
         state_metrics[st]["approved_intake"] += sum(p.approved_regular_intake for p in inst_progs)
 
     for enr in enrolments:
-        inst = next((i for i in institutions if i.id == enr.institution_id), None)
+        inst = inst_by_id.get(enr.institution_id)
         if inst and inst.state in state_metrics:
             state_metrics[inst.state]["enrolled"] += 1
 
     for issue in issues:
-        inst = next((i for i in institutions if i.id == issue.institution_id), None)
+        inst = inst_by_id.get(issue.institution_id)
         if inst and inst.state in state_metrics:
             state_metrics[inst.state]["anomalies"] += 1
 
@@ -74,13 +91,13 @@ def get_national_overview(db: Session = Depends(get_db)):
     # Provisional admissions (no APAAR yet, grace-period workflow)
     provisional_count = db.query(Enrolment).filter(Enrolment.enrolment_status == "PROVISIONAL").count()
 
-    # Calculate institution-level excess intake and risk scoring
+    # Calculate institution-level excess intake and risk scoring using indexed lookups
     inst_risk_list = []
     excess_intake_count = 0
     for inst in institutions:
-        inst_progs = [p for p in programs if p.institution_id == inst.id]
+        inst_progs = programs_by_inst.get(inst.id, [])
         inst_intake = sum(p.approved_regular_intake for p in inst_progs) or 1
-        inst_enrolled = sum(1 for e in enrolments if e.institution_id == inst.id)
+        inst_enrolled = len(enrolments_by_inst.get(inst.id, []))
         util_pct = round((inst_enrolled / inst_intake) * 100, 1)
 
         # Related alerts
@@ -139,7 +156,7 @@ def get_national_overview(db: Session = Depends(get_db)):
             "created_at": a.created_at.isoformat() if a.created_at else None
         })
 
-    return {
+    response_data = {
         "total_institutions": len(institutions),
         "total_approved_regular_intake": total_approved_regular_intake,
         "total_supernumerary_capacity": total_supernumerary_cap,
@@ -166,8 +183,17 @@ def get_national_overview(db: Session = Depends(get_db)):
         }
     }
 
+    # Cache for 60 seconds
+    cache.set("national_overview", response_data, ttl=60)
+    return response_data
+
 @router.get("/intake", response_model=List[IntakeAnalyticsResponse])
 def get_intake_analytics(institution_id: str = None, db: Session = Depends(get_db)):
+    cache_key = f"intake_analytics_{institution_id or 'all'}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     programs_query = db.query(Program)
     if institution_id:
         programs_query = programs_query.filter(Program.institution_id == institution_id)
@@ -241,6 +267,8 @@ def get_intake_analytics(institution_id: str = None, db: Session = Depends(get_d
             total_admitted=total_admitted,
             status=status
         ))
+
+    cache.set(cache_key, results, ttl=60)
     return results
 
 @router.get("/institution/{id}")

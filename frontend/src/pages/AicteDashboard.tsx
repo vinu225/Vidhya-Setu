@@ -10,27 +10,35 @@ interface AicteDashboardProps {
   onSwitchPersona?: (username: string) => void;
 }
 
+// Module-level cache so tab switching renders instantly (0ms) without skeletons
+let memoryCachedOverview: NationalOverview | null = null;
+
 export const AicteDashboard: React.FC<AicteDashboardProps> = ({
   user,
   onNavigateTab,
   onLogout,
   onSwitchPersona
 }) => {
-  const [overview, setOverview] = useState<NationalOverview | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [overview, setOverview] = useState<NationalOverview | null>(memoryCachedOverview);
+  const [loading, setLoading] = useState<boolean>(!memoryCachedOverview);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState<boolean>(false);
   const [showSakshamStudio, setShowSakshamStudio] = useState<boolean>(false);
 
   const fetchData = async () => {
     try {
-      setLoading(true);
+      if (!memoryCachedOverview) {
+        setLoading(true);
+      }
       setError(null);
       const overviewData = await api.getNationalOverview();
+      memoryCachedOverview = overviewData;
       setOverview(overviewData);
     } catch (err: any) {
       console.error('Failed to load AICTE Dashboard metrics:', err);
-      setError(err.message || 'Could not connect to AICTE regulatory overview API.');
+      if (!memoryCachedOverview) {
+        setError(err.message || 'Could not connect to AICTE regulatory overview API.');
+      }
     } finally {
       setLoading(false);
     }
@@ -94,8 +102,8 @@ export const AicteDashboard: React.FC<AicteDashboardProps> = ({
       onSwitchPersona={onSwitchPersona}
     >
       <Head
-        eyebrow="Regulatory HQ"
-        title="AICTE dashboard"
+        eyebrow="Vidhya Setu • Regulatory HQ"
+        title="Vidhya Setu — AICTE Dashboard"
         sub="National student data and intake compliance surveillance across approved technical institutions."
       >
         <span className="badge sky" style={{ marginRight: 8 }}>

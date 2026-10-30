@@ -9,16 +9,22 @@ interface IntakeMonitoringProps {
   onSwitchPersona?: (username: string) => void;
 }
 
+// Module-level cache for instant tab loading
+const memoryCachedIntake: Record<string, IntakeAnalytics[]> = {};
+let memoryCachedInstitutions: Institution[] = [];
+
 export const IntakeMonitoring: React.FC<IntakeMonitoringProps> = ({
   user,
   onNavigateTab,
   onLogout,
   onSwitchPersona
 }) => {
-  const [intakeData, setIntakeData] = useState<IntakeAnalytics[]>([]);
-  const [institutions, setInstitutions] = useState<Institution[]>([]);
+  const currentKey = user?.institution_id || '';
+  const cachedForCurrent = memoryCachedIntake[currentKey || 'all'];
+  const [intakeData, setIntakeData] = useState<IntakeAnalytics[]>(cachedForCurrent || []);
+  const [institutions, setInstitutions] = useState<Institution[]>(memoryCachedInstitutions);
   const [selectedInst, setSelectedInst] = useState<string>(user?.institution_id || '');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!cachedForCurrent);
   const [error, setError] = useState<string | null>(null);
 
   // Sync selectedInst when user or institution_id becomes available
@@ -31,7 +37,9 @@ export const IntakeMonitoring: React.FC<IntakeMonitoringProps> = ({
   useEffect(() => {
     const fetchInstitutions = async () => {
       try {
+        if (memoryCachedInstitutions.length > 0) return;
         const insts = await api.getInstitutions();
+        memoryCachedInstitutions = insts;
         setInstitutions(insts);
       } catch (err: any) {
         console.error('Failed to load institutions', err);
@@ -41,15 +49,21 @@ export const IntakeMonitoring: React.FC<IntakeMonitoringProps> = ({
   }, []);
 
   const loadIntake = async () => {
+    const targetInst = user?.institution_id || selectedInst;
+    const cacheKey = targetInst || 'all';
     try {
-      setLoading(true);
+      if (!memoryCachedIntake[cacheKey]) {
+        setLoading(true);
+      }
       setError(null);
-      const targetInst = user?.institution_id || selectedInst;
       const data = await api.getIntakeAnalytics(targetInst || undefined);
+      memoryCachedIntake[cacheKey] = data;
       setIntakeData(data);
     } catch (err: any) {
       console.error('Failed to load intake analytics', err);
-      setError(err.message || 'Error loading intake compliance data.');
+      if (!memoryCachedIntake[cacheKey]) {
+        setError(err.message || 'Error loading intake compliance data.');
+      }
     } finally {
       setLoading(false);
     }

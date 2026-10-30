@@ -9,15 +9,20 @@ interface AnomalyCenterProps {
   onSwitchPersona?: (username: string) => void;
 }
 
+// Module-level cache for instant tab loading
+let memoryCachedAlerts: AnomalyAlert[] = [];
+let memoryCachedDuplicates: DuplicateCase[] = [];
+
 export const AnomalyCenter: React.FC<AnomalyCenterProps> = ({
   user,
   onNavigateTab,
   onLogout,
   onSwitchPersona
 }) => {
-  const [alerts, setAlerts] = useState<AnomalyAlert[]>([]);
-  const [duplicateCases, setDuplicateCases] = useState<DuplicateCase[]>([]);
-  const [loading, setLoading] = useState(true);
+  const hasCached = memoryCachedAlerts.length > 0 || memoryCachedDuplicates.length > 0;
+  const [alerts, setAlerts] = useState<AnomalyAlert[]>(memoryCachedAlerts);
+  const [duplicateCases, setDuplicateCases] = useState<DuplicateCase[]>(memoryCachedDuplicates);
+  const [loading, setLoading] = useState(!hasCached);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItem, setSelectedItem] = useState<any>(null);
@@ -26,20 +31,46 @@ export const AnomalyCenter: React.FC<AnomalyCenterProps> = ({
 
   const loadData = async () => {
     try {
-      setLoading(true);
+      if (!hasCached) {
+        setLoading(true);
+      }
       setError(null);
       const [alts, dups] = await Promise.all([
         api.getAnomalyAlerts(),
         api.getDuplicateCases()
       ]);
+      memoryCachedAlerts = alts;
+      memoryCachedDuplicates = dups;
       setAlerts(alts);
       setDuplicateCases(dups);
 
       // Select first item by default if available
       if (dups.length > 0) {
-        setSelectedItem({ ...dups[0], itemType: 'duplicate' });
+        const d = dups[0];
+        setSelectedItem({
+          id: d.id,
+          caseId: d.case_id,
+          title: `Dual Enrolment: ${d.student_name}`,
+          reason: d.detection_reason,
+          score: '98',
+          severity: d.severity,
+          status: d.review_status,
+          itemType: 'duplicate',
+          raw: d
+        });
       } else if (alts.length > 0) {
-        setSelectedItem({ ...alts[0], itemType: 'alert' });
+        const a = alts[0];
+        setSelectedItem({
+          id: a.id,
+          caseId: a.alert_id,
+          title: a.title,
+          reason: a.description,
+          score: Math.round(a.anomaly_score * 100).toString(),
+          severity: a.severity,
+          status: a.status,
+          itemType: 'alert',
+          raw: a
+        });
       }
     } catch (err: any) {
       console.error('Failed to load anomalies', err);

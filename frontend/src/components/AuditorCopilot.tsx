@@ -30,7 +30,7 @@ export const AuditorCopilot: React.FC = () => {
     {
       id: "welcome-1",
       sender: "assistant",
-      text: "👋 **Welcome to the AICTE Regulatory Auditor Co-Pilot (Qwen 8B)**.\n\nI monitor **241 institutions across 23 States**, tracking real-time intake caps, duplicate student collisions, and APH 2024-27 statutory compliance. How can I assist your regulatory inspection today?",
+      text: "👋 **Welcome to Vidhya Setu — AICTE Regulatory Auditor Co-Pilot (Qwen 8B)**.\n\nI monitor **241 institutions across 23 States**, tracking real-time intake caps, duplicate student collisions, and APH 2024-27 statutory compliance. How can I assist your regulatory inspection today?",
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       modelSource: "regulatory_ai_engine",
       modelName: "Qwen 2.5 8B / Regulatory Engine"
@@ -254,7 +254,7 @@ export const AuditorCopilot: React.FC = () => {
               </div>
               <div>
                 <div className="text-xs font-extrabold text-white flex items-center gap-1.5">
-                  <span>AICTE Auditor Co-Pilot</span>
+                  <span>Vidhya Setu — Auditor Co-Pilot</span>
                   <span className="text-[9px] bg-indigo-500/30 text-indigo-300 border border-indigo-400/30 font-bold px-1.5 py-0.2 rounded">
                     Qwen 8B Local
                   </span>

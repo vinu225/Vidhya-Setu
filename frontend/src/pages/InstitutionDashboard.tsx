@@ -103,7 +103,7 @@ export const InstitutionDashboard: React.FC<InstitutionDashboardProps> = ({
       onSwitchPersona={onSwitchPersona}
     >
       <Head
-        eyebrow="Institution portal"
+        eyebrow="Vidhya Setu • Campus Operations"
         title={instData?.institution_name || 'Institution Portal'}
         sub={
           instData

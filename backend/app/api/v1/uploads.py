@@ -14,6 +14,7 @@ from app.security.security import (
 )
 from app.services.validation_service import ValidationService
 from app.services.audit_service import AuditService
+from app.services.cache_service import cache
 
 router = APIRouter(prefix="/uploads", tags=["Bulk Uploads"])
 
@@ -184,6 +185,9 @@ async def upload_students_file(
         description=f"Batch {batch.id} processed: {successful} successful, {failed} failed from {filename}",
         institution_id=institution_id
     )
+
+    # Invalidate cached analytics and institutions
+    cache.clear()
 
     return UploadBatchResponse(
         id=batch.id,

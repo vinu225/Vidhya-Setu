@@ -51,7 +51,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab, use
         </div>
         <div>
           <div className="font-extrabold text-white text-base tracking-tight flex items-center gap-1.5">
-            APAAR-Verify
+            Vidhya Setu
             <span className="text-[10px] font-bold uppercase bg-blue-950 text-blue-300 px-1.5 py-0.5 rounded border border-blue-700/60">
               HQ
             </span>

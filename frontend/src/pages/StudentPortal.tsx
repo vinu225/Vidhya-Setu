@@ -54,7 +54,7 @@ export const StudentPortal: React.FC<StudentPortalProps> = ({
     >
       <Head
         eyebrow="DPDP Act 2023 Compliant Citizen Wallet"
-        title="Student Credential & Privacy Portal"
+        title="Vidhya Setu — Student Credential & Privacy Portal"
         sub="Control who accesses your academic credentials, manage selective disclosure (ZKP), and generate verifiable digital signatures."
       >
         <div style={{ display: 'flex', gap: 8 }}>

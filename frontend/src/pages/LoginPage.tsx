@@ -48,11 +48,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         <div className="l">
           <div className="brand" style={{ padding: 0, marginBottom: 24 }}>
             <i>✓</i>
-            <span>APAAR-Verify</span>
+            <span>Vidhya Setu</span>
           </div>
           <h1>One verified record for every student.</h1>
           <p style={{ maxWidth: 460, color: '#CBD5E1', fontSize: 15, lineHeight: 1.6 }}>
-            AICTE sovereign student verification platform for real-time institutional intake surveillance,
+            Vidhya Setu: AICTE sovereign student verification platform for real-time institutional intake surveillance,
             Verhoeff checksum validation, and DPDP Act 2023 verifiable credentials.
           </p>
 

@@ -9,6 +9,7 @@ from app.security.security import get_current_user, require_roles
 from app.services.graph_service import IdentityGraphService
 from app.services.anomaly_service import AnomalyService
 from app.services.audit_service import AuditService
+from app.services.cache_service import cache
 
 router = APIRouter(prefix="/validation", tags=["Validation & Fraud Detection"])
 
@@ -27,11 +28,22 @@ def get_validation_issues(
 
 @router.get("/duplicates", response_model=List[DuplicateCaseResponse])
 def get_duplicate_cases(db: Session = Depends(get_db)):
+    cached = cache.get("duplicate_cases")
+    if cached is not None:
+        return cached
+
     cases = db.query(DuplicateCase).order_by(DuplicateCase.created_at.desc()).all()
+    # Batch load institutions instead of N+1 queries
+    inst_ids = set()
+    for c in cases:
+        inst_ids.add(c.primary_institution_id)
+        inst_ids.add(c.secondary_institution_id)
+    institutions = {i.id: i.name for i in db.query(Institution).filter(Institution.id.in_(list(inst_ids))).all()}
+
     results = []
     for c in cases:
-        p_inst = db.query(Institution).filter(Institution.id == c.primary_institution_id).first()
-        s_inst = db.query(Institution).filter(Institution.id == c.secondary_institution_id).first()
+        p_name = institutions.get(c.primary_institution_id, c.primary_institution_id)
+        s_name = institutions.get(c.secondary_institution_id, c.secondary_institution_id)
         results.append(DuplicateCaseResponse(
             id=c.id,
             case_id=c.case_id,
@@ -39,8 +51,8 @@ def get_duplicate_cases(db: Session = Depends(get_db)):
             student_name=c.student_name,
             primary_institution_id=c.primary_institution_id,
             secondary_institution_id=c.secondary_institution_id,
-            primary_institution_name=p_inst.name if p_inst else c.primary_institution_id,
-            secondary_institution_name=s_inst.name if s_inst else c.secondary_institution_id,
+            primary_institution_name=p_name,
+            secondary_institution_name=s_name,
             academic_year=c.academic_year,
             detection_reason=c.detection_reason,
             evidence_summary=c.evidence_summary,
@@ -49,6 +61,7 @@ def get_duplicate_cases(db: Session = Depends(get_db)):
             resolution_notes=c.resolution_notes,
             created_at=c.created_at
         ))
+    cache.set("duplicate_cases", results, ttl=60)
     return results
 
 @router.post("/duplicates/{id}/resolve", response_model=DuplicateCaseResponse)
@@ -66,6 +79,11 @@ def resolve_duplicate_case(
     case.resolution_notes = data.resolution_notes
     db.commit()
     db.refresh(case)
+
+    # Invalidate caches
+    cache.clear("duplicate")
+    cache.clear("identity_graph")
+    cache.clear("national_overview")
 
     AuditService.record_event(
         db,
@@ -99,8 +117,14 @@ def resolve_duplicate_case(
 
 @router.get("/graph")
 def get_cross_institution_identity_graph(db: Session = Depends(get_db)):
-    """Returns the NetworkX cross-institution identity graph for visual analytics"""
-    return IdentityGraphService.build_cross_institution_graph(db)
+    """Returns the NetworkX cross-institution identity graph for visual analytics with sub-10ms cache"""
+    cached = cache.get("identity_graph")
+    if cached is not None:
+        return cached
+
+    data = IdentityGraphService.build_cross_institution_graph(db)
+    cache.set("identity_graph", data, ttl=60)
+    return data
 
 @router.post("/run")
 def trigger_validation_run(

@@ -24,7 +24,7 @@ export interface RolePortalConfig {
 
 export const ROLE_CONFIGS: Record<string, RolePortalConfig> = {
   AICTE_ADMIN: {
-    portalTitle: 'AICTE National HQ',
+    portalTitle: 'Vidhya Setu — AICTE HQ',
     portalSubtitle: 'Central Repository & Surveillance',
     badgeText: 'National Authority',
     badgeTone: 'sky',
@@ -44,6 +44,7 @@ export const ROLE_CONFIGS: Record<string, RolePortalConfig> = {
         items: [
           { id: 'reports', label: 'Regulatory Reports' },
           { id: 'audit', label: 'DPDP Audit Vault' },
+          { id: 'complaints-review', label: 'Student Grievance Review' },
           { id: 'health', label: 'Infrastructure Probes' }
         ]
       },
@@ -56,7 +57,7 @@ export const ROLE_CONFIGS: Record<string, RolePortalConfig> = {
     ]
   },
   INSTITUTION_ADMIN: {
-    portalTitle: 'Institution Portal',
+    portalTitle: 'Vidhya Setu — Campus Portal',
     portalSubtitle: 'College Admissions & Quotas',
     badgeText: 'Campus Node',
     badgeTone: 'green',
@@ -81,7 +82,7 @@ export const ROLE_CONFIGS: Record<string, RolePortalConfig> = {
     ]
   },
   DATA_ENTRY_OFFICER: {
-    portalTitle: 'Admissions Desk',
+    portalTitle: 'Vidhya Setu — Admissions Desk',
     portalSubtitle: 'Student Ingestion & Registration',
     badgeText: 'DEO Officer',
     badgeTone: 'green',
@@ -104,7 +105,7 @@ export const ROLE_CONFIGS: Record<string, RolePortalConfig> = {
     ]
   },
   EXTERNAL_VERIFIER: {
-    portalTitle: 'Employer Trust Gateway',
+    portalTitle: 'Vidhya Setu — Verifier Gateway',
     portalSubtitle: 'Authorized Credential Verification',
     badgeText: 'Authorized Verifier',
     badgeTone: 'sky',
@@ -120,7 +121,7 @@ export const ROLE_CONFIGS: Record<string, RolePortalConfig> = {
     ]
   },
   AUDITOR: {
-    portalTitle: 'Regulatory Oversight',
+    portalTitle: 'Vidhya Setu — Audit Console',
     portalSubtitle: 'Audit & Compliance Directorate',
     badgeText: 'Audit Access',
     badgeTone: 'amber',
@@ -133,7 +134,8 @@ export const ROLE_CONFIGS: Record<string, RolePortalConfig> = {
           { id: 'intake', label: 'Accredited Intake Monitor' },
           { id: 'anomalies', label: 'Forensic Anomaly Review' },
           { id: 'reports', label: 'Regulatory Compliance Reports' },
-          { id: 'audit', label: 'DPDP Immutable Audit Vault' }
+          { id: 'audit', label: 'DPDP Immutable Audit Vault' },
+          { id: 'complaints-review', label: 'Student Grievance Review' }
         ]
       },
       {
@@ -145,7 +147,7 @@ export const ROLE_CONFIGS: Record<string, RolePortalConfig> = {
     ]
   },
   STUDENT: {
-    portalTitle: 'APAAR Citizen Wallet',
+    portalTitle: 'Vidhya Setu — Student Wallet',
     portalSubtitle: 'Student Privacy & Credential Manager',
     badgeText: '',
     badgeTone: 'green',

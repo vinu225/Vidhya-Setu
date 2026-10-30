@@ -61,7 +61,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </span>
           <span className="text-slate-300">|</span>
           <span className="text-xs text-blue-700 font-bold tracking-wide flex items-center gap-1.5">
-            <span>APAAR-Verify</span>
+            <span>Vidhya Setu</span>
             <span className="text-[10px] font-semibold text-slate-500 font-normal">Surveillance Gateway</span>
           </span>
         </div>

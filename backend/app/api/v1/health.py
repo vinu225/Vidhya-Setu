@@ -15,7 +15,7 @@ def health_check(db: Session = Depends(get_db)):
 
     return {
         "status": "UP",
-        "service": "EduVerify AI Backend API",
+        "service": "Vidhya Setu Backend API",
         "database": db_status,
         "api_version": "v1.0.0-sih-26263"
     }
