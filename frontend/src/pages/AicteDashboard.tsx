@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Shell, Head, Card, Kpi, Badge, Table, Bars, Skeleton, ErrorState, EmptyState } from '../components/ui';
 import { api, NationalOverview, Institution, UserInfo } from '../services/api';
 import { SakshamScrutinyStudio } from '../components/SakshamScrutinyStudio';
+import { IndiaSurveillanceMap } from '../components/IndiaSurveillanceMap';
 
 interface AicteDashboardProps {
   user?: UserInfo | null;
@@ -24,6 +25,7 @@ export const AicteDashboard: React.FC<AicteDashboardProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState<boolean>(false);
   const [showSakshamStudio, setShowSakshamStudio] = useState<boolean>(false);
+  const [selectedState, setSelectedState] = useState<string | null>(null);
 
   const fetchData = async () => {
     try {
@@ -59,9 +61,16 @@ export const AicteDashboard: React.FC<AicteDashboardProps> = ({
     }
   };
 
+  // Filtered institutions if a state is selected on the Map
+  const filteredRiskInstitutions = (overview?.top_risk_institutions || []).filter(inst => {
+    if (!selectedState) return true;
+    return inst.state?.toLowerCase().includes(selectedState.toLowerCase()) ||
+           selectedState.toLowerCase().includes(inst.state?.toLowerCase());
+  });
+
   // Prepare Bars data from top risk institutions
-  const barRows: [string, number, number][] = (overview?.top_risk_institutions && overview.top_risk_institutions.length > 0)
-    ? overview.top_risk_institutions.slice(0, 6).map(inst => [
+  const barRows: [string, number, number][] = (filteredRiskInstitutions.length > 0)
+    ? filteredRiskInstitutions.slice(0, 6).map(inst => [
         inst.name.length > 20 ? inst.name.slice(0, 18) + '…' : inst.name,
         inst.approved_intake,
         inst.actual_enrolled
@@ -69,7 +78,7 @@ export const AicteDashboard: React.FC<AicteDashboardProps> = ({
     : [];
 
   // Institution Compliance summary table rows
-  const complianceRows = (overview?.top_risk_institutions || []).slice(0, 8).map(inst => {
+  const complianceRows = filteredRiskInstitutions.slice(0, 8).map(inst => {
     const isOver = inst.actual_enrolled > inst.approved_intake;
     const isNear = inst.actual_enrolled >= inst.approved_intake * 0.9 && !isOver;
 
@@ -179,6 +188,15 @@ export const AicteDashboard: React.FC<AicteDashboardProps> = ({
                   {overview.alert_severity_breakdown.critical + overview.alert_severity_breakdown.high} high risk
                 </Badge>
               }
+            />
+          </div>
+
+          {/* Interactive Geo-Spatial India Surveillance Map */}
+          <div style={{ marginTop: 16 }}>
+            <IndiaSurveillanceMap
+              stateMetrics={overview.state_breakdown}
+              selectedState={selectedState}
+              onSelectState={setSelectedState}
             />
           </div>
 

@@ -22,10 +22,23 @@ export const StudentPortal: React.FC<StudentPortalProps> = ({
   const [logs, setLogs] = useState<any[]>(api.getStudentVerificationAccessLogs());
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   useEffect(() => {
     api.getStudentDemoRecord().then(data => setRecord(data));
   }, []);
+
+  const handleDownloadPdf = async () => {
+    try {
+      setDownloadingPdf(true);
+      const studentId = record?.student_id || record?.id || '2024-CSE-001';
+      await api.downloadEnrolmentCertificate(studentId);
+    } catch (err: any) {
+      alert(`Could not download certificate: ${err.message}`);
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
 
   const handleToggleConsent = (key: string) => {
     const updated = { ...consent, [key]: !consent[key] };
@@ -212,9 +225,18 @@ export const StudentPortal: React.FC<StudentPortalProps> = ({
               </div>
 
               {/* Action Bar */}
-              <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+              <div style={{ display: 'flex', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
                 <button type="button" className="btn pri" onClick={() => setActiveSubTab('share')}>
                   Share Verifiable QR
+                </button>
+                <button
+                  type="button"
+                  className="btn"
+                  style={{ borderColor: 'var(--blue)', color: 'var(--blue)', fontWeight: 600 }}
+                  onClick={handleDownloadPdf}
+                  disabled={downloadingPdf}
+                >
+                  {downloadingPdf ? 'Generating PDF...' : '📄 Download Official AICTE Certificate (PDF)'}
                 </button>
                 <button type="button" className="btn" onClick={() => setActiveSubTab('consent')}>
                   Configure Privacy

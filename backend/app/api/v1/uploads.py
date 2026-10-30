@@ -1,4 +1,5 @@
 import io
+from datetime import datetime, timezone
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
 from fastapi.responses import StreamingResponse
@@ -6,7 +7,7 @@ from sqlalchemy.orm import Session
 from typing import List, Dict, Any
 
 from app.database import get_db
-from app.models.models import UploadBatch, UploadRowResult, ValidationIssue, Student, Enrolment, Program, User
+from app.models.models import UploadBatch, UploadRowResult, ValidationIssue, Student, Enrolment, Program, User, AnomalyAlert, Institution
 from app.schemas.schemas import UploadBatchResponse, UploadRowResultResponse
 from app.security.security import (
     get_current_user, require_roles, verify_institution_access,
@@ -28,6 +29,14 @@ async def upload_students_file(
     current_user: User = Depends(require_roles(["AICTE_ADMIN", "INSTITUTION_ADMIN", "DATA_ENTRY_OFFICER"]))
 ):
     verify_institution_access(institution_id, current_user)
+
+    # Check Statutory Admission Window Lock (APH 2024-27 Clause 7.1)
+    from app.api.v1.windows import is_window_locked
+    if is_window_locked() and current_user.role != "AICTE_ADMIN":
+        raise HTTPException(
+            status_code=403,
+            detail="National Admission Window is LOCKED pursuant to AICTE APH 2024-27 Clause 7.1. New admissions cannot be ingested without an approved AICTE post-lock exception."
+        )
 
     filename = file.filename or ""
     if not (filename.endswith('.csv') or filename.endswith('.xlsx')):
@@ -169,6 +178,40 @@ async def upload_students_file(
                 raw_data=row_dict
             ))
             successful += 1
+
+    # Run Engine integrity signals on batch
+    try:
+        from app.engine.signals import execute_signals
+        engine_admissions = []
+        for _, r_data in df.iterrows():
+            r_dict = {k: str(r_data[orig_col]).strip() for k, orig_col in column_mapping.items()}
+            engine_admissions.append({
+                "student_id": r_dict.get("student_id", ""),
+                "institution_id": institution_id,
+                "programme_code": r_dict.get("program_code", ""),
+                "category": r_dict.get("seat_category", "general").lower(),
+                "admission_date": r_dict.get("admission_date", ""),
+                "upload_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                "contact_phone": r_dict.get("phone") or r_dict.get("contact_phone", "")
+            })
+        batch_signals = execute_signals({"admissions": engine_admissions})
+        inst_obj = db.query(Institution).filter(Institution.id == institution_id).first()
+        inst_name = inst_obj.name if inst_obj else institution_id
+        for sig in batch_signals:
+            if sig.severity in ("review", "error"):
+                alert_id = f"SIG-{sig.signal_name[:4]}-{batch.id[:6]}"
+                db.add(AnomalyAlert(
+                    alert_id=alert_id,
+                    alert_type=sig.signal_name,
+                    severity="HIGH" if sig.severity == "error" else "MEDIUM",
+                    title=f"{sig.signal_name.replace('_', ' ').title()}: {inst_name}",
+                    description=sig.description,
+                    anomaly_score=round(sig.score / 100.0, 2),
+                    triggering_features=sig.evidence,
+                    affected_institutions=[inst_name]
+                ))
+    except Exception:
+        pass
 
     batch.processed_rows = len(df)
     batch.successful_rows = successful

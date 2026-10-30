@@ -1,8 +1,8 @@
 import numpy as np
 from typing import List, Dict, Any
 from sqlalchemy.orm import Session
-from sklearn.ensemble import IsolationForest
 from app.models.models import Institution, Program, Enrolment, AnomalyAlert, ValidationIssue, DuplicateCase
+from app.engine.anomaly.service import AnomalyDetectionService
 
 class AnomalyService:
     @staticmethod
@@ -84,18 +84,29 @@ class AnomalyService:
                     db.add(alert)
                     alerts.append(alert)
 
-        # 2. Unsupervised Scoring using IsolationForest
+        # 2. Unsupervised Scoring using Engine Isolation Forest with Explainability
         if len(feature_matrix) >= 4:
-            X = np.array(feature_matrix)
-            clf = IsolationForest(contamination=0.25, random_state=42)
-            preds = clf.fit_predict(X)
-            scores = -clf.score_samples(X)  # Higher score = more anomalous
+            engine_items = [
+                {
+                    "institution_id": meta["institution"].id,
+                    "features": {
+                        "seat_utilisation": meta["utilization_rate"],
+                        "duplicate_rate": meta["duplicate_rate"],
+                        "shared_contact_rate": meta["supernumerary_rate"],
+                        "eligibility_violation_count": float(meta["issue_rate"] * 10),
+                    }
+                }
+                for meta in inst_meta
+            ]
+            engine_svc = AnomalyDetectionService(contamination=0.25, random_state=42)
+            results = engine_svc.fit_predict(engine_items)
 
-            for idx, pred in enumerate(preds):
-                if pred == -1:  # Outlier detected
+            for idx, res in enumerate(results):
+                if res.prediction == "anomalous":  # Outlier detected by Isolation Forest
                     meta = inst_meta[idx]
                     inst = meta["institution"]
-                    score = float(scores[idx])
+                    score = float(res.score)
+                    top_f = ", ".join(res.top_features) if res.top_features else "admission deviation"
 
                     alert_id = f"ALERT-ML-{inst.official_code}"
                     existing = db.query(AnomalyAlert).filter(AnomalyAlert.alert_id == alert_id).first()
@@ -105,9 +116,10 @@ class AnomalyService:
                             alert_type="STATISTICAL_DISTRIBUTION_ANOMALY",
                             severity="MEDIUM",
                             title=f"Statistical Anomaly Flag: {inst.name}",
-                            description=f"Multi-dimensional anomaly detected via Isolation Forest. Supernumerary ratio ({round(meta['supernumerary_rate']*100, 1)}%) or validation issue rate ({round(meta['issue_rate']*100, 1)}%) deviates significantly from national peer group.",
+                            description=f"Multi-dimensional anomaly detected via Isolation Forest. Top deviating factors: {top_f}. Peer anomaly score: {round(score, 3)}.",
                             anomaly_score=round(score, 3),
                             triggering_features={
+                                "top_features": res.top_features,
                                 "supernumerary_rate": round(meta['supernumerary_rate'], 3),
                                 "issue_rate": round(meta['issue_rate'], 3),
                                 "utilization_rate": round(meta['utilization_rate'], 3)

@@ -36,7 +36,8 @@ export const ROLE_CONFIGS: Record<string, RolePortalConfig> = {
           { id: 'dashboard', label: 'National Analytics' },
           { id: 'intake', label: 'Intake Surveillance' },
           { id: 'anomalies', label: 'Anomaly & Duplicate Center' },
-          { id: 'graph', label: 'Identity Collision Graph' }
+          { id: 'graph', label: 'Identity Collision Graph' },
+          { id: 'blindmatch', label: 'Blind Match Privacy Explorer' }
         ]
       },
       {
@@ -133,6 +134,7 @@ export const ROLE_CONFIGS: Record<string, RolePortalConfig> = {
           { id: 'dashboard', label: 'National Overview' },
           { id: 'intake', label: 'Accredited Intake Monitor' },
           { id: 'anomalies', label: 'Forensic Anomaly Review' },
+          { id: 'blindmatch', label: 'Blind Match Privacy Explorer' },
           { id: 'reports', label: 'Regulatory Compliance Reports' },
           { id: 'audit', label: 'DPDP Immutable Audit Vault' },
           { id: 'complaints-review', label: 'Student Grievance Review' }

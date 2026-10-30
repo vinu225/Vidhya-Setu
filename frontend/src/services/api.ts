@@ -119,6 +119,13 @@ export interface NationalOverview {
     reason: string;
     alert_count: number;
   }>;
+  state_breakdown?: Array<{
+    state: string;
+    institutions: number;
+    approved_intake: number;
+    enrolled: number;
+    anomalies: number;
+  }>;
   recent_alerts: Array<{
     id: string;
     alert_id: string;
@@ -313,6 +320,17 @@ async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promi
 }
 
 export const api = {
+  // Generic REST callers
+  async get(endpoint: string): Promise<any> {
+    return apiRequest(endpoint, { method: "GET" });
+  },
+  async post(endpoint: string, body?: any): Promise<any> {
+    return apiRequest(endpoint, {
+      method: "POST",
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  },
+
   // Auth
   async login(username: string, password: string): Promise<{ access_token: string; user_info: UserInfo }> {
     // Seamless student persona mock credentials for evaluation without backend schema changes
@@ -562,6 +580,21 @@ export const api = {
     const a = document.createElement("a");
     a.href = url;
     a.download = `aicte_enrolment_report_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  },
+
+  async downloadEnrolmentCertificate(studentId: string): Promise<void> {
+    const token = getAuthToken();
+    const res = await fetch(`${API_BASE}/credentials/certificate/${studentId}`, {
+      headers: token ? { "Authorization": `Bearer ${token}` } : {}
+    });
+    if (!res.ok) throw new Error("Failed to generate verifiable PDF certificate");
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `aicte_enrolment_certificate_${studentId}.pdf`;
     a.click();
     window.URL.revokeObjectURL(url);
   },

@@ -5,7 +5,7 @@ from app.config import settings
 from app.database import engine, Base, SessionLocal
 from app.api.v1 import (
     auth, institutions, programs, students, uploads,
-    validation, analytics, credentials, reports, audit, health, copilot
+    validation, analytics, credentials, reports, audit, health, copilot, engine as engine_api, windows
 )
 from app.models.models import User
 from app.security.security import get_password_hash
@@ -76,6 +76,8 @@ app.include_router(reports.router, prefix=settings.API_V1_STR)
 app.include_router(audit.router, prefix=settings.API_V1_STR)
 app.include_router(health.router, prefix=settings.API_V1_STR)
 app.include_router(copilot.router, prefix=settings.API_V1_STR)
+app.include_router(engine_api.router, prefix=settings.API_V1_STR)
+app.include_router(windows.router, prefix=settings.API_V1_STR)
 
 @app.get("/")
 def root():

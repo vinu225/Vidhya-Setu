@@ -23,6 +23,40 @@ export const InstitutionDashboard: React.FC<InstitutionDashboardProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [showSakshamStudio, setShowSakshamStudio] = useState(false);
 
+  // Statutory Submission Window state
+  const [windowStatus, setWindowStatus] = useState<any>({ status: 'OPEN', academic_year: '2024-25', regular_cutoff: '2024-08-15' });
+  const [showExceptionModal, setShowExceptionModal] = useState<boolean>(false);
+  const [exceptionReason, setExceptionReason] = useState<string>('');
+  const [exceptionSeats, setExceptionSeats] = useState<number>(5);
+  const [exceptionSubmitted, setExceptionSubmitted] = useState<boolean>(false);
+
+  useEffect(() => {
+    // Fetch submission window status
+    api.get('/windows/status')
+      .then(res => setWindowStatus(res))
+      .catch(() => {});
+  }, []);
+
+  const handleRequestException = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await api.post('/windows/request-exception', {
+        institution_id: selectedInstId || instData?.id || 'inst-current',
+        institution_name: instData?.institution_name || 'Current Institution',
+        reason: exceptionReason,
+        requested_seats: exceptionSeats
+      });
+      setExceptionSubmitted(true);
+      setTimeout(() => {
+        setShowExceptionModal(false);
+        setExceptionSubmitted(false);
+        setExceptionReason('');
+      }, 2500);
+    } catch (err: any) {
+      alert(`Failed to submit exception request: ${err.message}`);
+    }
+  };
+
   useEffect(() => {
     if (user?.institution_id) {
       setSelectedInstId(user.institution_id);
@@ -158,6 +192,49 @@ export const InstitutionDashboard: React.FC<InstitutionDashboardProps> = ({
         </div>
       ) : instData ? (
         <>
+          {/* Statutory Admission Window Status Banner */}
+          <div
+            className="apaar-card"
+            style={{
+              marginBottom: 16,
+              background: windowStatus.status === 'LOCKED' ? 'rgba(239, 68, 68, 0.04)' : 'rgba(16, 185, 129, 0.04)',
+              borderLeft: `4px solid ${windowStatus.status === 'LOCKED' ? '#ef4444' : '#10b981'}`
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <span style={{ fontSize: '1.1rem' }}>{windowStatus.status === 'LOCKED' ? '🔒' : '🟢'}</span>
+                  <strong>
+                    AICTE Statutory Admission Window (AY {windowStatus.academic_year}):{' '}
+                    <span style={{ color: windowStatus.status === 'LOCKED' ? '#ef4444' : '#10b981' }}>
+                      {windowStatus.status === 'LOCKED' ? 'LOCKED PURSUANT TO APH CLAUSE 7.1' : 'OPEN FOR INGESTION'}
+                    </span>
+                  </strong>
+                  <Badge tone={windowStatus.status === 'LOCKED' ? 'red' : 'green'}>
+                    Cutoff: {windowStatus.regular_cutoff?.slice(0, 10) || 'Aug 15'}
+                  </Badge>
+                </div>
+                <p style={{ margin: 0, fontSize: 12, color: 'var(--text-secondary)' }}>
+                  {windowStatus.status === 'LOCKED'
+                    ? 'Statutory cutoff reached. Bulk student ingestion is disabled. Any delayed regularization requires formal AICTE approval.'
+                    : 'Admissions data may be committed. Ensure all admitted students hold sovereign APAAR IDs with valid Verhoeff checksums.'}
+                </p>
+              </div>
+
+              {windowStatus.status === 'LOCKED' && (
+                <button
+                  type="button"
+                  onClick={() => setShowExceptionModal(true)}
+                  className="btn"
+                  style={{ borderColor: '#ef4444', color: '#ef4444', fontWeight: 600, fontSize: 12 }}
+                >
+                  📝 Request Post-Lock Exception
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* 4 KPIs matching design */}
           <div className="grid">
             <Kpi
@@ -287,6 +364,88 @@ export const InstitutionDashboard: React.FC<InstitutionDashboardProps> = ({
           onClose={() => setShowSakshamStudio(false)}
           role={user?.role || 'INSTITUTION_ADMIN'}
         />
+      )}
+
+      {/* Post-Lock Exception Request Modal */}
+      {showExceptionModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 16 }}>
+          <div className="apaar-card" style={{ maxWidth: 480, width: '100%', background: 'var(--bg-card)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600 }}>
+                📝 Post-Lock Admission Exception Request
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowExceptionModal(false)}
+                className="apaar-btn outline"
+                style={{ padding: '2px 8px' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {exceptionSubmitted ? (
+              <div style={{ padding: 20, textAlign: 'center' }}>
+                <div style={{ fontSize: '2rem', marginBottom: 8 }}>✅</div>
+                <h4 style={{ margin: '0 0 6px 0' }}>Exception Request Submitted</h4>
+                <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)' }}>
+                  Your request has been queued for AICTE Regulation Bureau review.
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={handleRequestException}>
+                <p style={{ margin: '0 0 14px 0', fontSize: 13, color: 'var(--text-secondary)' }}>
+                  Pursuant to AICTE Approval Process Handbook (APH 2024-27) Clause 7.1, any late admission requires formal approval from the AICTE Member Secretary.
+                </p>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 500, marginBottom: 4 }}>
+                      Number of Seats to Regularize:
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="50"
+                      className="apaar-input"
+                      value={exceptionSeats}
+                      onChange={(e) => setExceptionSeats(parseInt(e.target.value) || 1)}
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 500, marginBottom: 4 }}>
+                      Statutory Justification / Cause:
+                    </label>
+                    <textarea
+                      rows={3}
+                      className="apaar-input"
+                      placeholder="e.g. State CET round-3 mop-up delayed counselling allotment..."
+                      value={exceptionReason}
+                      onChange={(e) => setExceptionReason(e.target.value)}
+                      required
+                      style={{ resize: 'vertical' }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowExceptionModal(false)}
+                    className="btn"
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn pri">
+                    Submit to AICTE HQ
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
       )}
     </Shell>
   );

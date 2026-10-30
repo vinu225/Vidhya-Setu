@@ -1,13 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import Dict, Any
+import io
 
 from app.database import get_db
-from app.models.models import IssuedCredential, Student, Enrolment, User
+from app.models.models import IssuedCredential, Student, Enrolment, Institution, Program, User
 from app.schemas.schemas import CredentialIssueRequest, CredentialVerifyRequest, VerificationResultResponse
 from app.security.security import get_current_user, require_roles, mask_apaar_id
 from app.services.credential_service import CredentialService
 from app.services.audit_service import AuditService
+from app.services.pdf_service import generate_enrolment_certificate_pdf
 
 router = APIRouter(prefix="/credentials", tags=["Verifiable Credentials & QR Verification"])
 
@@ -104,3 +107,58 @@ def revoke_credential(
     )
 
     return {"message": "Credential revoked successfully", "credential_id": cred.credential_id}
+
+@router.get("/certificate/{student_id}")
+def download_enrolment_certificate(
+    student_id: str,
+    db: Session = Depends(get_db)
+):
+    """Generates an official, AICTE-stamped verifiable enrolment PDF certificate with embedded QR seal."""
+    # Find student by ID or roll number
+    student = db.query(Student).filter(
+        (Student.id == student_id) | (Student.student_id == student_id)
+    ).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student record not found")
+
+    enrolment = db.query(Enrolment).filter(
+        Enrolment.student_id == student.id,
+        Enrolment.enrolment_status == "ACTIVE"
+    ).first()
+    if not enrolment:
+        # Fallback to any enrolment if no active
+        enrolment = db.query(Enrolment).filter(Enrolment.student_id == student.id).first()
+    if not enrolment:
+        raise HTTPException(status_code=404, detail="No enrolment record found for this student")
+
+    institution = db.query(Institution).filter(Institution.id == enrolment.institution_id).first()
+    program = db.query(Program).filter(Program.id == enrolment.program_id).first()
+
+    # Find or auto-issue credential
+    cred = db.query(IssuedCredential).filter(IssuedCredential.enrolment_id == enrolment.id).first()
+    if not cred:
+        cred = CredentialService.issue_credential(db, student.id, enrolment.id)
+
+    pdf_bytes = generate_enrolment_certificate_pdf(
+        student_name=student.name,
+        masked_apaar=mask_apaar_id(student.apaar_id),
+        roll_number=student.student_id,
+        institution_name=institution.name if institution else "Affiliated Technical University",
+        institution_code=institution.official_code if institution else "AICTE-INST",
+        program_name=program.program_name if program else "Bachelor of Technology",
+        program_code=program.program_code if program else "BTECH",
+        academic_year=enrolment.academic_year or "2024-25",
+        seat_category=enrolment.seat_category or "REGULAR",
+        credential_id=cred.credential_id,
+        digital_signature=cred.digital_signature,
+        public_key_ref=cred.public_key_ref,
+        issued_at=cred.issued_at.strftime("%d %B %Y, %H:%M UTC") if cred.issued_at else None
+    )
+
+    filename = f"aicte_enrolment_certificate_{student.student_id}.pdf"
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
