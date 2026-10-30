@@ -49,7 +49,7 @@ def export_enrolment_report(
             sanitize_csv_cell(e.enrolment_status),
             sanitize_csv_cell(e.tamper_hash or "")
         ]
-        output.write(f'"{'","'.join(row)}"\n')
+        output.write('"' + '","'.join(row) + '"\n')
 
     output.seek(0)
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
@@ -101,7 +101,7 @@ def export_compliance_report(
             f"{nri_adm}/{p.nri_quota or 0}",
             status
         ]
-        output.write(f'"{'","'.join(row)}"\n')
+        output.write('"' + '","'.join(row) + '"\n')
 
     output.seek(0)
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
