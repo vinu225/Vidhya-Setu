@@ -164,7 +164,7 @@ export const InstitutionDashboard: React.FC<InstitutionDashboardProps> = ({
           className="btn"
           style={{ borderColor: 'var(--blue)', color: 'var(--blue)', fontWeight: 600 }}
         >
-          🔍 SAKSHAM Doc Scrutiny
+          🔍 Document Scrutiny
         </button>
         <button
           type="button"
@@ -315,15 +315,15 @@ export const InstitutionDashboard: React.FC<InstitutionDashboardProps> = ({
             </Card>
           </div>
 
-          {/* SAKSHAM Document Scrutiny Desk Card */}
+          {/* Forensic Document Scrutiny Desk Card */}
           <Card
-            title="SAKSHAM Multi-Modal Document Scrutiny Desk"
+            title="Multi-Modal Document Scrutiny Desk"
             style={{ marginTop: 16, borderLeft: '4px solid var(--blue)' }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
               <div>
                 <p className="sub" style={{ margin: '0 0 6px 0', fontSize: 13 }}>
-                  AICTE SAKSHAM forensic engine inspecting PDF text layers, OCR scans, QR codes, and SHA-256 duplicate collision signatures.
+                  Forensic engine inspecting PDF text layers, OCR scans, QR codes, and SHA-256 duplicate collision signatures.
                 </p>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12 }}>
                   <Badge tone="green">18 Bonafide Verified</Badge>

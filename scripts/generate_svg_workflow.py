@@ -1,0 +1,200 @@
+svg_content = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="100%" height="100%" style="background:#FFFFFF; font-family:Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+  <defs>
+    <filter id="card-shadow" x="-5%" y="-5%" width="110%" height="115%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#0F172A" flood-opacity="0.06" />
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#0F172A" />
+    </marker>
+  </defs>
+
+  <!-- Header Title -->
+  <g transform="translate(80, 55)">
+    <text x="0" y="32" font-size="34" font-weight="800" fill="#0F172A" letter-spacing="-0.5">VIDHYA SETU — AICTE APAAR PLATFORM</text>
+    <text x="0" y="68" font-size="24" font-weight="700" fill="#2563EB">REAL-TIME SEAT PARITY &amp; VERIFICATION WORKFLOW</text>
+  </g>
+
+  <!-- CONNECTING ARROWS -->
+  <!-- Card 1 to 2 -->
+  <line x1="240" y1="360" x2="240" y2="450" stroke="#0F172A" stroke-width="2.5" marker-end="url(#arrow)" />
+  <!-- Card 1 to 3 -->
+  <line x1="410" y1="260" x2="500" y2="260" stroke="#0F172A" stroke-width="2.5" marker-end="url(#arrow)" />
+  <!-- Card 2 to 4 -->
+  <line x1="410" y1="560" x2="500" y2="560" stroke="#0F172A" stroke-width="2.5" marker-end="url(#arrow)" />
+  <!-- Card 3 to 4 -->
+  <line x1="665" y1="360" x2="665" y2="450" stroke="#0F172A" stroke-width="2.5" marker-end="url(#arrow)" />
+
+  <!-- Card 4 splits to 5 & 6 -->
+  <path d="M 830 560 L 880 560 L 880 260 L 920 260" fill="none" stroke="#0F172A" stroke-width="2.5" marker-end="url(#arrow)" />
+  <line x1="880" y1="560" x2="920" y2="560" stroke="#0F172A" stroke-width="2.5" marker-end="url(#arrow)" />
+
+  <!-- Card 5 & 6 to Col 4 Outputs -->
+  <path d="M 1250 260 L 1310 260 L 1310 720 L 1350 720" fill="none" stroke="#0F172A" stroke-width="2.5" marker-end="url(#arrow)" />
+  <line x1="1310" y1="260" x2="1350" y2="260" stroke="#0F172A" stroke-width="2.5" marker-end="url(#arrow)" />
+  <line x1="1310" y1="480" x2="1350" y2="480" stroke="#0F172A" stroke-width="2.5" marker-end="url(#arrow)" />
+  <line x1="1250" y1="560" x2="1310" y2="560" stroke="#0F172A" stroke-width="2.5" />
+
+  <!-- Return Loop: Card 9 to Card 4 -->
+  <path d="M 1580 820 L 1580 890 L 665 890 L 665 670" fill="none" stroke="#0F172A" stroke-width="2.5" marker-end="url(#arrow)" stroke-dasharray="6 4" />
+  <rect x="980" y="876" width="310" height="28" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.5" />
+  <text x="1135" y="895" font-size="13" font-weight="700" fill="#0F172A" text-anchor="middle">Audit &amp; Statutory Triage Feedback Loop</text>
+
+  <!-- CARD 1: Admissions & Batch Ingestion -->
+  <g transform="translate(80, 160)">
+    <rect width="330" height="200" rx="18" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2" filter="url(#card-shadow)" />
+    <rect x="22" y="22" width="48" height="48" rx="12" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="1.5" />
+    <text x="46" y="52" font-size="22" text-anchor="middle">📄</text>
+    <text x="84" y="42" font-size="17" font-weight="800" fill="#0F172A">Admissions Ingestion</text>
+    <text x="84" y="62" font-size="13" font-weight="500" fill="#64748B">CSV, XLSX &amp; APAAR Registry</text>
+    <circle cx="32" cy="100" r="3" fill="#2563EB" />
+    <text x="44" y="104" font-size="12" fill="#334155">Instant dry-run pre-commit validation</text>
+    <circle cx="32" cy="126" r="3" fill="#2563EB" />
+    <text x="44" y="130" font-size="12" fill="#334155">Verhoeff sovereign APAAR check</text>
+    <circle cx="32" cy="152" r="3" fill="#2563EB" />
+    <text x="44" y="156" font-size="12" fill="#334155">Isolated 'Rows to Fix' error queue</text>
+  </g>
+
+  <!-- CARD 2: Multi-Pool Seat Ledger -->
+  <g transform="translate(80, 460)">
+    <rect width="330" height="200" rx="18" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2" filter="url(#card-shadow)" />
+    <rect x="22" y="22" width="48" height="48" rx="12" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="1.5" />
+    <text x="46" y="52" font-size="22" text-anchor="middle">⚖️</text>
+    <text x="84" y="42" font-size="17" font-weight="800" fill="#0F172A">Multi-Pool Seat Ledger</text>
+    <text x="84" y="62" font-size="13" font-weight="500" fill="#64748B">Real-Time Quota Tracking</text>
+    <circle cx="32" cy="100" r="3" fill="#10B981" />
+    <text x="44" y="104" font-size="12" fill="#334155">Separated Regular, TFW, NRI &amp; OCI</text>
+    <circle cx="32" cy="126" r="3" fill="#10B981" />
+    <text x="44" y="130" font-size="12" fill="#334155">Real-time intake parity bars</text>
+    <circle cx="32" cy="152" r="3" fill="#10B981" />
+    <text x="44" y="156" font-size="12" fill="#334155">Zero cross-pool quota bleeding</text>
+  </g>
+
+  <!-- CARD 3: Statutory Guidelines -->
+  <g transform="translate(500, 160)">
+    <rect width="330" height="200" rx="18" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2" filter="url(#card-shadow)" />
+    <rect x="22" y="22" width="48" height="48" rx="12" fill="#0F172A" stroke="#0F172A" stroke-width="1.5" />
+    <text x="46" y="46" font-size="11" font-weight="800" fill="#FFFFFF" text-anchor="middle">AICTE</text>
+    <text x="46" y="60" font-size="10" font-weight="700" fill="#34D399" text-anchor="middle">APH</text>
+    <text x="84" y="42" font-size="17" font-weight="800" fill="#0F172A">Statutory Guidelines</text>
+    <text x="84" y="62" font-size="13" font-weight="500" fill="#64748B">AICTE Approval Process Handbook</text>
+    <circle cx="32" cy="100" r="3" fill="#0F172A" />
+    <text x="44" y="104" font-size="12" fill="#334155">Sanctioned intake capacity caps</text>
+    <circle cx="32" cy="126" r="3" fill="#0F172A" />
+    <text x="44" y="130" font-size="12" fill="#334155">Statutory cutoff lock (APH Clause 7.1)</text>
+    <circle cx="32" cy="152" r="3" fill="#0F172A" />
+    <text x="44" y="156" font-size="12" fill="#334155">Dynamic no-code rule updates</text>
+  </g>
+
+  <!-- CARD 4: AI Validation & ML Engine -->
+  <g transform="translate(500, 460)">
+    <rect width="330" height="200" rx="18" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2" filter="url(#card-shadow)" />
+    <rect x="22" y="22" width="48" height="48" rx="12" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1.5" />
+    <text x="46" y="52" font-size="22" text-anchor="middle">🤖</text>
+    <text x="84" y="42" font-size="17" font-weight="800" fill="#0F172A">AI Validation &amp; ML Engine</text>
+    <text x="84" y="62" font-size="13" font-weight="500" fill="#64748B">Isolation Forest &amp; Anomaly Rules</text>
+    <circle cx="32" cy="100" r="3" fill="#2563EB" />
+    <text x="44" y="104" font-size="12" fill="#334155">Unsupervised intake spike clustering</text>
+    <circle cx="32" cy="126" r="3" fill="#2563EB" />
+    <text x="44" y="130" font-size="12" fill="#334155">Dynamic 0–100 college integrity scores</text>
+    <circle cx="32" cy="152" r="3" fill="#2563EB" />
+    <text x="44" y="156" font-size="12" fill="#334155">Document metadata chronological checks</text>
+  </g>
+
+  <!-- CARD 5: Immutable Audit Vault -->
+  <g transform="translate(920, 160)">
+    <rect width="330" height="200" rx="18" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2" filter="url(#card-shadow)" />
+    <rect x="22" y="22" width="48" height="48" rx="12" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5" />
+    <text x="46" y="52" font-size="22" text-anchor="middle">🗄️</text>
+    <text x="84" y="42" font-size="17" font-weight="800" fill="#0F172A">Immutable Audit Vault</text>
+    <text x="84" y="62" font-size="13" font-weight="500" fill="#64748B">SHA-256 Merkle Ledger</text>
+    <circle cx="32" cy="100" r="3" fill="#6366F1" />
+    <text x="44" y="104" font-size="12" fill="#334155">Tamper-evident digital mutation log</text>
+    <circle cx="32" cy="126" r="3" fill="#6366F1" />
+    <text x="44" y="130" font-size="12" fill="#334155">Mathematical hash-chain verification</text>
+    <circle cx="32" cy="152" r="3" fill="#6366F1" />
+    <text x="44" y="156" font-size="12" fill="#334155">Full DPDP Act 2023 compliance</text>
+  </g>
+
+  <!-- CARD 6: Blind Match Privacy Engine -->
+  <g transform="translate(920, 460)">
+    <rect width="330" height="200" rx="18" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2" filter="url(#card-shadow)" />
+    <rect x="22" y="22" width="48" height="48" rx="12" fill="#ECFDF5" stroke="#10B981" stroke-width="1.5" />
+    <text x="46" y="52" font-size="22" text-anchor="middle">🛡️</text>
+    <text x="84" y="42" font-size="17" font-weight="800" fill="#0F172A">Compliance &amp; Privacy</text>
+    <text x="84" y="62" font-size="13" font-weight="500" fill="#64748B">Blind Match Cryptographic Engine</text>
+    <circle cx="32" cy="100" r="3" fill="#10B981" />
+    <text x="44" y="104" font-size="12" fill="#334155">Zero-PII Bloom filter demographic hashing</text>
+    <circle cx="32" cy="126" r="3" fill="#10B981" />
+    <text x="44" y="130" font-size="12" fill="#334155">Cross-college duplicate student detection</text>
+    <circle cx="32" cy="152" r="3" fill="#10B981" />
+    <text x="44" y="156" font-size="12" fill="#334155">Dice similarity scoring with zero leaks</text>
+  </g>
+
+  <!-- CARD 7: National Surveillance Map -->
+  <g transform="translate(1350, 160)">
+    <rect width="490" height="175" rx="18" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2" filter="url(#card-shadow)" />
+    <rect x="20" y="20" width="48" height="48" rx="12" fill="#FEF2F2" stroke="#EF4444" stroke-width="1.5" />
+    <text x="44" y="50" font-size="22" text-anchor="middle">🗺️</text>
+    <text x="80" y="40" font-size="16" font-weight="800" fill="#0F172A">National Geo-Spatial Surveillance</text>
+    <text x="80" y="58" font-size="12" font-weight="500" fill="#64748B">State Parity Heatmap &amp; Overrun Alerts</text>
+    <circle cx="30" cy="94" r="3" fill="#EF4444" />
+    <text x="42" y="98" font-size="12" fill="#334155">Interactive India map with real-time intake % &amp; anomaly counts</text>
+    <circle cx="30" cy="118" r="3" fill="#EF4444" />
+    <text x="42" y="122" font-size="12" fill="#334155">Instant red-flagging of over-intake breaches (&gt;100% capacity)</text>
+    <circle cx="30" cy="142" r="3" fill="#EF4444" />
+    <text x="42" y="146" font-size="12" fill="#334155">One-click regional filtering for regulatory show-cause audits</text>
+  </g>
+
+  <!-- CARD 8: Centralized Student Portal -->
+  <g transform="translate(1350, 375)">
+    <rect width="490" height="185" rx="18" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2" filter="url(#card-shadow)" />
+    <rect x="20" y="20" width="48" height="48" rx="12" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1.5" />
+    <text x="44" y="50" font-size="22" text-anchor="middle">🎓</text>
+    <text x="80" y="40" font-size="16" font-weight="800" fill="#0F172A">Centralized Student Portal</text>
+    <text x="80" y="58" font-size="12" font-weight="500" fill="#64748B">Single Window APAAR Program Tracker</text>
+    <circle cx="30" cy="94" r="3" fill="#2563EB" />
+    <text x="42" y="98" font-size="12" fill="#334155">Monitor and track all enrolled AICTE programs in one place</text>
+    <circle cx="30" cy="118" r="3" fill="#2563EB" />
+    <text x="42" y="122" font-size="12" fill="#334155">One-click 'Confirm' or 'Dispute' anti-ghost enrolment actions</text>
+    <circle cx="30" cy="142" r="3" fill="#2563EB" />
+    <text x="42" y="146" font-size="12" fill="#334155">Download tamper-evident official AICTE PDF certificates</text>
+  </g>
+
+  <!-- CARD 9: Regulatory Action & Verifier -->
+  <g transform="translate(1350, 600)">
+    <rect width="490" height="175" rx="18" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2" filter="url(#card-shadow)" />
+    <rect x="20" y="20" width="48" height="48" rx="12" fill="#ECFDF5" stroke="#10B981" stroke-width="1.5" />
+    <text x="44" y="50" font-size="22" text-anchor="middle">🔍</text>
+    <text x="80" y="40" font-size="16" font-weight="800" fill="#0F172A">Regulatory Action &amp; Offline Verifier</text>
+    <text x="80" y="58" font-size="12" font-weight="500" fill="#64748B">Zero-Server In-Browser QR Scanner</text>
+    <circle cx="30" cy="94" r="3" fill="#10B981" />
+    <text x="42" y="98" font-size="12" fill="#334155">In-browser TweetNaCl Ed25519 offline cryptographic scan</text>
+    <circle cx="30" cy="118" r="3" fill="#10B981" />
+    <text x="42" y="122" font-size="12" fill="#334155">Instant employer validation without contacting central server</text>
+    <circle cx="30" cy="142" r="3" fill="#10B981" />
+    <text x="42" y="146" font-size="12" fill="#334155">Decision triage: Verified, Needs Clarification, Flagged</text>
+  </g>
+
+  <!-- Bottom Metric Banner -->
+  <g transform="translate(80, 940)">
+    <rect width="1760" height="90" rx="16" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.5" />
+    <text x="40" y="42" font-size="18" font-weight="800" fill="#0F172A">⚡ 100% Real-Time Parity</text>
+    <text x="40" y="66" font-size="13" fill="#64748B">Zero intake overruns &amp; quota bleeding</text>
+
+    <text x="480" y="42" font-size="18" font-weight="800" fill="#0F172A">🛡️ DPDP Act 2023 Compliant</text>
+    <text x="480" y="66" font-size="13" fill="#64748B">Cryptographic Bloom filter blind matching</text>
+
+    <text x="960" y="42" font-size="18" font-weight="800" fill="#0F172A">📜 SHA-256 Merkle Chain</text>
+    <text x="960" y="66" font-size="13" fill="#64748B">Mathematically tamper-evident audit ledger</text>
+
+    <text x="1420" y="42" font-size="18" font-weight="800" fill="#0F172A">📊 Benchmark Validated</text>
+    <text x="1420" y="66" font-size="13" fill="#64748B">Tested on 241 institutes &amp; 3,500+ records</text>
+  </g>
+</svg>"""
+
+with open("vidhya_setu_feature_workflow.svg", "w", encoding="utf-8") as f:
+    f.write(svg_content)
+with open("frontend/public/vidhya_setu_feature_workflow.svg", "w", encoding="utf-8") as f:
+    f.write(svg_content)
+print("Saved SVG files successfully!")
+

@@ -124,7 +124,7 @@ export const AicteDashboard: React.FC<AicteDashboardProps> = ({
           className="btn"
           style={{ borderColor: 'var(--blue)', color: 'var(--blue)', fontWeight: 600 }}
         >
-          🔍 SAKSHAM Doc Scrutiny Studio
+          🔍 Document Scrutiny Studio
         </button>
         <button
           type="button"
@@ -242,9 +242,9 @@ export const AicteDashboard: React.FC<AicteDashboardProps> = ({
             </Card>
           </div>
 
-          {/* SAKSHAM National Document Scrutiny & Forensic Hub Card */}
+          {/* Document Verification & Forensic Hub Card */}
           <Card
-            title="SAKSHAM Sovereign Document Verification & Forensic Hub"
+            title="Document Verification & Forensic Scrutiny Hub"
             style={{ marginTop: 16, borderLeft: '4px solid var(--blue)' }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>

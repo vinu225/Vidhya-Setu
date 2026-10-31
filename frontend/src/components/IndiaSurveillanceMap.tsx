@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import '../apaar.css';
+import mapUtilImg from '../assets/india-map-utilization.png';
+import mapAnomImg from '../assets/india-map-anomalies.png';
 
 export interface StateData {
   state: string;
@@ -15,32 +17,39 @@ interface IndiaSurveillanceMapProps {
   selectedState?: string | null;
 }
 
-// Geometric coordinates and simplified SVG polygons for Indian States & UTs
-const STATE_PATHS: { id: string; name: string; path: string; center: [number, number] }[] = [
-  { id: 'JK', name: 'Jammu and Kashmir', center: [140, 60], path: 'M 115 35 L 140 25 L 175 40 L 165 85 L 130 90 L 115 65 Z' },
-  { id: 'HP', name: 'Himachal Pradesh', center: [155, 105], path: 'M 135 90 L 165 85 L 175 110 L 150 125 L 135 105 Z' },
-  { id: 'PB', name: 'Punjab', center: [120, 115], path: 'M 105 100 L 135 105 L 130 135 L 105 130 Z' },
-  { id: 'UT', name: 'Uttarakhand', center: [180, 125], path: 'M 165 110 L 195 120 L 190 145 L 160 135 Z' },
-  { id: 'HR', name: 'Haryana', center: [135, 145], path: 'M 125 135 L 150 135 L 145 160 L 120 155 Z' },
-  { id: 'DL', name: 'Delhi', center: [148, 148], path: 'M 144 144 L 152 144 L 152 152 L 144 152 Z' },
-  { id: 'RJ', name: 'Rajasthan', center: [95, 180], path: 'M 70 140 L 125 135 L 145 180 L 115 225 L 60 205 L 60 160 Z' },
-  { id: 'UP', name: 'Uttar Pradesh', center: [205, 175], path: 'M 150 135 L 205 140 L 265 175 L 235 215 L 175 210 L 145 170 Z' },
-  { id: 'BR', name: 'Bihar', center: [285, 195], path: 'M 265 175 L 315 180 L 310 220 L 260 215 Z' },
-  { id: 'WB', name: 'West Bengal', center: [320, 235], path: 'M 315 180 L 335 190 L 325 270 L 305 255 L 315 220 Z' },
-  { id: 'JH', name: 'Jharkhand', center: [280, 235], path: 'M 260 215 L 305 220 L 300 260 L 255 250 Z' },
-  { id: 'OD', name: 'Odisha', center: [270, 285], path: 'M 255 250 L 305 255 L 290 320 L 245 300 Z' },
-  { id: 'MP', name: 'Madhya Pradesh', center: [165, 230], path: 'M 120 205 L 175 195 L 235 215 L 225 270 L 145 265 L 115 230 Z' },
-  { id: 'GJ', name: 'Gujarat', center: [65, 240], path: 'M 30 210 L 95 215 L 105 265 L 75 285 L 35 255 L 20 230 Z' },
-  { id: 'MH', name: 'Maharashtra', center: [135, 305], path: 'M 85 275 L 155 265 L 215 285 L 195 345 L 130 350 L 85 305 Z' },
-  { id: 'CG', name: 'Chhattisgarh', center: [230, 260], path: 'M 220 225 L 250 230 L 245 295 L 210 300 Z' },
-  { id: 'TG', name: 'Telangana', center: [175, 345], path: 'M 160 320 L 205 320 L 200 370 L 155 365 Z' },
-  { id: 'AP', name: 'Andhra Pradesh', center: [195, 395], path: 'M 195 330 L 240 310 L 220 420 L 175 410 L 195 370 Z' },
-  { id: 'KA', name: 'Karnataka', center: [125, 395], path: 'M 115 345 L 165 350 L 160 435 L 115 420 L 105 375 Z' },
-  { id: 'GA', name: 'Goa', center: [100, 375], path: 'M 98 370 L 106 370 L 104 382 L 96 380 Z' },
-  { id: 'KL', name: 'Kerala', center: [125, 465], path: 'M 115 430 L 135 435 L 130 495 L 115 470 Z' },
-  { id: 'TN', name: 'Tamil Nadu', center: [160, 460], path: 'M 135 425 L 180 420 L 165 495 L 130 490 Z' },
-  { id: 'AS', name: 'Assam', center: [365, 185], path: 'M 345 175 L 390 170 L 385 205 L 345 195 Z' },
-  { id: 'NE', name: 'North East Region', center: [390, 185], path: 'M 375 160 L 415 165 L 405 220 L 370 210 Z' }
+interface StatePin {
+  id: string;
+  code: string;
+  name: string;
+  cx: number;
+  cy: number;
+  defaultIntake: number;
+  defaultEnrolled: number;
+  defaultAnomalies: number;
+}
+
+const STATE_PINS: StatePin[] = [
+  { id: 'JK', code: 'JK', name: 'Jammu and Kashmir', cx: 243, cy: 137, defaultIntake: 1800, defaultEnrolled: 1530, defaultAnomalies: 0 },
+  { id: 'HP', code: 'HP', name: 'Himachal Pradesh', cx: 267, cy: 220, defaultIntake: 1200, defaultEnrolled: 864, defaultAnomalies: 0 },
+  { id: 'PB', code: 'PB', name: 'Punjab', cx: 221, cy: 253, defaultIntake: 2200, defaultEnrolled: 1496, defaultAnomalies: 0 },
+  { id: 'UT', code: 'UT', name: 'Uttarakhand', cx: 318, cy: 273, defaultIntake: 1400, defaultEnrolled: 980, defaultAnomalies: 0 },
+  { id: 'HR', code: 'HR/DL', name: 'Haryana', cx: 244, cy: 302, defaultIntake: 3400, defaultEnrolled: 3264, defaultAnomalies: 1 },
+  { id: 'RJ', code: 'RJ', name: 'Rajasthan', cx: 179, cy: 377, defaultIntake: 4500, defaultEnrolled: 4680, defaultAnomalies: 5 },
+  { id: 'UP', code: 'UP', name: 'Uttar Pradesh', cx: 353, cy: 367, defaultIntake: 8500, defaultEnrolled: 8330, defaultAnomalies: 1 },
+  { id: 'BR', code: 'BR', name: 'Bihar', cx: 483, cy: 404, defaultIntake: 3100, defaultEnrolled: 1922, defaultAnomalies: 0 },
+  { id: 'JH', code: 'JH', name: 'Jharkhand', cx: 481, cy: 461, defaultIntake: 2000, defaultEnrolled: 1280, defaultAnomalies: 0 },
+  { id: 'WB', code: 'WB', name: 'West Bengal', cx: 538, cy: 479, defaultIntake: 4800, defaultEnrolled: 3360, defaultAnomalies: 0 },
+  { id: 'OD', code: 'OD', name: 'Odisha', cx: 452, cy: 547, defaultIntake: 3200, defaultEnrolled: 2208, defaultAnomalies: 0 },
+  { id: 'CG', code: 'CG', name: 'Chhattisgarh', cx: 391, cy: 527, defaultIntake: 1900, defaultEnrolled: 1273, defaultAnomalies: 0 },
+  { id: 'MP', code: 'MP', name: 'Madhya Pradesh', cx: 295, cy: 465, defaultIntake: 5200, defaultEnrolled: 5304, defaultAnomalies: 3 },
+  { id: 'GJ', code: 'GJ', name: 'Gujarat', cx: 122, cy: 487, defaultIntake: 4800, defaultEnrolled: 3840, defaultAnomalies: 0 },
+  { id: 'MH', code: 'MH', name: 'Maharashtra', cx: 239, cy: 577, defaultIntake: 8200, defaultEnrolled: 6888, defaultAnomalies: 2 },
+  { id: 'TG', code: 'TG', name: 'Telangana', cx: 313, cy: 621, defaultIntake: 4600, defaultEnrolled: 3588, defaultAnomalies: 0 },
+  { id: 'AP', code: 'AP', name: 'Andhra Pradesh', cx: 337, cy: 677, defaultIntake: 5400, defaultEnrolled: 4374, defaultAnomalies: 0 },
+  { id: 'KA', code: 'KA', name: 'Karnataka', cx: 239, cy: 705, defaultIntake: 6900, defaultEnrolled: 5451, defaultAnomalies: 0 },
+  { id: 'KL', code: 'KL', name: 'Kerala', cx: 247, cy: 818, defaultIntake: 3100, defaultEnrolled: 2201, defaultAnomalies: 0 },
+  { id: 'TN', code: 'TN', name: 'Tamil Nadu', cx: 297, cy: 802, defaultIntake: 7800, defaultEnrolled: 6396, defaultAnomalies: 0 },
+  { id: 'AS', code: 'AS/NE', name: 'Assam', cx: 669, cy: 384, defaultIntake: 2100, defaultEnrolled: 1365, defaultAnomalies: 0 },
 ];
 
 export const IndiaSurveillanceMap: React.FC<IndiaSurveillanceMapProps> = ({
@@ -50,48 +59,47 @@ export const IndiaSurveillanceMap: React.FC<IndiaSurveillanceMapProps> = ({
 }) => {
   const [hoveredState, setHoveredState] = useState<StateData | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [mode, setMode] = useState<'utilization' | 'anomalies'>('utilization');
+  const [metricMode, setMetricMode] = useState<'utilization' | 'anomalies'>('utilization');
 
-  // Map state names to metrics map
+  // Pre-index state metrics for fast lookup
   const metricsMap = new Map<string, StateData>();
   stateMetrics.forEach(m => {
     metricsMap.set(m.state.toLowerCase().trim(), m);
   });
 
-  const getStateMetric = (name: string): StateData => {
-    const clean = name.toLowerCase().trim();
+  const getStateMetric = (pin: StatePin): StateData => {
+    const clean = pin.name.toLowerCase().trim();
     if (metricsMap.has(clean)) return metricsMap.get(clean)!;
 
-    // Fuzzy matching for partial state names
     for (const [k, v] of metricsMap.entries()) {
       if (clean.includes(k) || k.includes(clean)) return v;
     }
 
     return {
-      state: name,
-      institutions: 4,
-      approved_intake: 1200,
-      enrolled: 1050,
-      anomalies: 0
+      state: pin.name,
+      institutions: pin.defaultIntake > 5000 ? 14 : 7,
+      approved_intake: pin.defaultIntake,
+      enrolled: pin.defaultEnrolled,
+      anomalies: pin.defaultAnomalies
     };
   };
 
-  const getColor = (data: StateData): string => {
-    if (mode === 'anomalies') {
-      if (data.anomalies >= 4) return '#ef4444'; // Red (High breach)
-      if (data.anomalies >= 1) return '#f59e0b'; // Amber (Medium)
-      return '#10b981'; // Green
+  const getSurveillanceColor = (data: StateData): { fill: string; border: string; text: string } => {
+    if (metricMode === 'anomalies') {
+      if (data.anomalies >= 3) return { fill: '#EF4444', border: '#B91C1C', text: '#FFFFFF' };
+      if (data.anomalies >= 1) return { fill: '#F59E0B', border: '#D97706', text: '#FFFFFF' };
+      return { fill: '#10B981', border: '#059669', text: '#FFFFFF' };
     }
 
     const util = (data.enrolled / Math.max(data.approved_intake, 1)) * 100;
-    if (util > 100) return '#ef4444'; // Over-intake violation
-    if (util >= 95) return '#f59e0b'; // Near capacity alert
-    if (util >= 75) return '#3b82f6'; // Healthy regular
-    return '#10b981'; // Low utilization
+    if (util > 100) return { fill: '#EF4444', border: '#B91C1C', text: '#FFFFFF' }; // Red
+    if (util >= 95) return { fill: '#F59E0B', border: '#D97706', text: '#FFFFFF' }; // Amber
+    if (util >= 75) return { fill: '#3B82F6', border: '#1D4ED8', text: '#FFFFFF' }; // Blue
+    return { fill: '#10B981', border: '#059669', text: '#FFFFFF' }; // Green
   };
 
   const handleMouseMove = (e: React.MouseEvent, data: StateData) => {
-    const rect = e.currentTarget.getBoundingClientRect();
+    const rect = e.currentTarget.parentElement?.getBoundingClientRect() || e.currentTarget.getBoundingClientRect();
     setTooltipPos({
       x: e.clientX - rect.left + 15,
       y: e.clientY - rect.top - 20
@@ -100,46 +108,52 @@ export const IndiaSurveillanceMap: React.FC<IndiaSurveillanceMapProps> = ({
   };
 
   return (
-    <div className="apaar-card" style={{ position: 'relative', overflow: 'hidden' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+    <div className="apaar-card" style={{ position: 'relative', overflow: 'hidden', padding: '20px 24px' }}>
+      {/* Header & Controls */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600 }}>
-            🗺️ National Geo-Spatial Surveillance & Intake Parity Map
-          </h3>
-          <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-            Hover over any state to inspect AICTE intake utilization, enrolled APAAR volume, and active fraud anomalies.
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '1.25rem' }}>🗺️</span>
+            <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#0F172A' }}>
+              National Geo-Spatial Surveillance & Intake Parity Map
+            </h3>
+          </div>
+          <p style={{ margin: '4px 0 0 0', fontSize: '0.82rem', color: '#64748B' }}>
+            Official Survey of India territorial outline with real-time AICTE capacity parity and statutory anomaly heat.
           </p>
         </div>
 
-        {/* View Mode & Filter Toggles */}
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <div style={{ display: 'inline-flex', background: 'var(--border-color)', padding: '2px', borderRadius: '6px' }}>
+        {/* View Mode Toggle & Clear Filter */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', background: '#F1F5F9', padding: '3px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
             <button
-              onClick={() => setMode('utilization')}
+              onClick={() => setMetricMode('utilization')}
               style={{
-                background: mode === 'utilization' ? 'var(--bg-card)' : 'transparent',
+                background: metricMode === 'utilization' ? '#FFFFFF' : 'transparent',
                 border: 'none',
-                padding: '4px 10px',
-                borderRadius: '4px',
+                padding: '5px 12px',
+                borderRadius: '6px',
                 fontSize: '0.78rem',
-                fontWeight: mode === 'utilization' ? 600 : 400,
+                fontWeight: metricMode === 'utilization' ? 700 : 500,
                 cursor: 'pointer',
-                color: 'var(--text-primary)'
+                color: metricMode === 'utilization' ? '#0F172A' : '#64748B',
+                boxShadow: metricMode === 'utilization' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
               }}
             >
               Intake %
             </button>
             <button
-              onClick={() => setMode('anomalies')}
+              onClick={() => setMetricMode('anomalies')}
               style={{
-                background: mode === 'anomalies' ? 'var(--bg-card)' : 'transparent',
+                background: metricMode === 'anomalies' ? '#FFFFFF' : 'transparent',
                 border: 'none',
-                padding: '4px 10px',
-                borderRadius: '4px',
+                padding: '5px 12px',
+                borderRadius: '6px',
                 fontSize: '0.78rem',
-                fontWeight: mode === 'anomalies' ? 600 : 400,
+                fontWeight: metricMode === 'anomalies' ? 700 : 500,
                 cursor: 'pointer',
-                color: 'var(--text-primary)'
+                color: metricMode === 'anomalies' ? '#0F172A' : '#64748B',
+                boxShadow: metricMode === 'anomalies' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
               }}
             >
               Anomalies
@@ -150,140 +164,214 @@ export const IndiaSurveillanceMap: React.FC<IndiaSurveillanceMapProps> = ({
             <button
               onClick={() => onSelectState && onSelectState(null)}
               className="apaar-btn outline"
-              style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+              style={{ padding: '5px 10px', fontSize: '0.75rem', borderColor: '#CBD5E1', background: '#F8FAFC' }}
             >
-              Clear Filter ({selectedState}) ✕
+              Clear Filter: <strong>{selectedState}</strong> ✕
             </button>
           )}
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 1.2fr) minmax(220px, 0.8fr)', gap: '20px', alignItems: 'center' }}>
-        {/* SVG Interactive Map */}
-        <div style={{ position: 'relative', width: '100%', maxWidth: '440px', margin: '0 auto' }}>
-          <svg viewBox="0 0 440 520" style={{ width: '100%', height: 'auto', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.05))' }}>
-            {STATE_PATHS.map(state => {
-              const data = getStateMetric(state.name);
-              const fillColor = getColor(data);
-              const isSelected = selectedState && selectedState.toLowerCase() === state.name.toLowerCase();
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(340px, 1.25fr) minmax(240px, 0.75fr)', gap: '24px', alignItems: 'center' }}>
+        {/* Authentic India Map Canvas with Direct Base Image & Number Badges */}
+        <div
+          style={{
+            position: 'relative',
+            width: '100%',
+            maxWidth: '540px',
+            margin: '0 auto',
+            borderRadius: '12px',
+            overflow: 'hidden',
+            border: '1px solid #E2E8F0',
+            background: '#FFFFFF',
+            boxShadow: '0 4px 16px rgba(15,23,42,0.06)'
+          }}
+        >
+          {/* 1. Authentic Base Outline Image of India filled with Surveillance Legend Colors */}
+          <img
+            src={metricMode === 'utilization' ? mapUtilImg : mapAnomImg}
+            alt="National Surveillance Map of India"
+            style={{ width: '100%', height: 'auto', display: 'block', userSelect: 'none' }}
+          />
+
+          {/* 2. Interactive SVG Overlay for Numbers, Badges, and Hover Pins */}
+          <svg
+            viewBox="0 0 800 939"
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              pointerEvents: 'all'
+            }}
+          >
+            <defs>
+              <filter id="badge-shadow" x="-30%" y="-30%" width="160%" height="160%">
+                <feDropShadow dx="0" dy="2" stdDeviation="2.5" floodOpacity="0.4" />
+              </filter>
+            </defs>
+
+            {STATE_PINS.map(pin => {
+              const data = getStateMetric(pin);
+              const colorInfo = getSurveillanceColor(data);
+              const isSelected = selectedState && selectedState.toLowerCase() === pin.name.toLowerCase();
+              const isHovered = hoveredState && hoveredState.state === pin.name;
+              const utilPct = Math.round((data.enrolled / Math.max(data.approved_intake, 1)) * 100);
+
+              const displayText = metricMode === 'utilization' ? `${utilPct}%` : `${data.anomalies}`;
+              const badgeWidth = metricMode === 'utilization' ? (displayText.length > 3 ? 54 : 46) : 32;
+              const badgeHeight = 22;
 
               return (
-                <g key={state.id}>
-                  <path
-                    d={state.path}
-                    fill={fillColor}
+                <g
+                  key={pin.id}
+                  style={{ cursor: 'pointer', transition: 'transform 0.15s ease' }}
+                  transform={isSelected || isHovered ? `scale(1.15) translate(${pin.cx * -0.13}, ${pin.cy * -0.13})` : undefined}
+                  onMouseEnter={(e) => handleMouseMove(e, data)}
+                  onMouseMove={(e) => handleMouseMove(e, data)}
+                  onMouseLeave={() => setHoveredState(null)}
+                  onClick={() => onSelectState && onSelectState(isSelected ? null : pin.name)}
+                >
+                  {/* Subtle selection / pulse glow */}
+                  {isSelected && (
+                    <circle
+                      cx={pin.cx}
+                      cy={pin.cy}
+                      r="28"
+                      fill="none"
+                      stroke="#0F172A"
+                      strokeWidth="2.5"
+                      strokeDasharray="4 3"
+                    />
+                  )}
+
+                  {/* Number Badge Container */}
+                  <rect
+                    x={pin.cx - badgeWidth / 2}
+                    y={pin.cy - badgeHeight / 2}
+                    width={badgeWidth}
+                    height={badgeHeight}
+                    rx="11"
+                    fill={colorInfo.fill}
                     stroke={isSelected ? '#0F172A' : '#FFFFFF'}
-                    strokeWidth={isSelected ? '2.5' : '1'}
-                    style={{
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                      opacity: hoveredState && hoveredState.state !== state.name ? 0.75 : 1
-                    }}
-                    onMouseEnter={(e) => handleMouseMove(e, data)}
-                    onMouseMove={(e) => handleMouseMove(e, data)}
-                    onMouseLeave={() => setHoveredState(null)}
-                    onClick={() => onSelectState && onSelectState(isSelected ? null : state.name)}
+                    strokeWidth={isSelected ? '2' : '1.5'}
+                    filter="url(#badge-shadow)"
                   />
-                  {/* State Center Label */}
+
+                  {/* Number text on top of state */}
                   <text
-                    x={state.center[0]}
-                    y={state.center[1]}
-                    fontSize="9"
-                    fontWeight="600"
-                    fill="#FFFFFF"
+                    x={pin.cx}
+                    y={pin.cy + 1}
                     textAnchor="middle"
-                    pointerEvents="none"
-                    style={{ textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}
+                    dominantBaseline="central"
+                    fill="#FFFFFF"
+                    fontSize="11"
+                    fontWeight="800"
+                    fontFamily="Inter, system-ui, sans-serif"
+                    style={{ pointerEvents: 'none' }}
                   >
-                    {state.id}
+                    {displayText}
                   </text>
                 </g>
               );
             })}
           </svg>
 
-          {/* Interactive Floating Hover Tooltip */}
+          {/* Interactive Tooltip Card */}
           {hoveredState && (
             <div
               style={{
                 position: 'absolute',
                 left: `${tooltipPos.x}px`,
                 top: `${tooltipPos.y}px`,
-                background: '#0F172A',
+                transform: 'translate(-50%, -100%)',
+                background: 'rgba(15, 23, 42, 0.95)',
                 color: '#FFFFFF',
-                padding: '8px 12px',
-                borderRadius: '6px',
-                fontSize: '0.78rem',
+                padding: '10px 14px',
+                borderRadius: '8px',
+                fontSize: '0.8rem',
                 pointerEvents: 'none',
-                zIndex: 30,
-                boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)',
-                minWidth: '180px'
+                boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+                border: '1px solid rgba(255,255,255,0.15)',
+                backdropFilter: 'blur(8px)',
+                zIndex: 100,
+                minWidth: '210px'
               }}
             >
-              <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: '4px', borderBottom: '1px solid rgba(255,255,255,0.2)', paddingBottom: '3px' }}>
+              <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: '4px', borderBottom: '1px solid rgba(255,255,255,0.2)', paddingBottom: '3px' }}>
                 {hoveredState.state}
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
-                <span>Monitored Campuses:</span>
-                <strong>{hoveredState.institutions}</strong>
+              <div style={{ display: 'flex', justifyContent: 'space-between', margin: '3px 0' }}>
+                <span style={{ color: '#94A3B8' }}>AICTE Approved Intake:</span>
+                <span style={{ fontWeight: 600 }}>{hoveredState.approved_intake.toLocaleString()}</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
-                <span>Approved Intake:</span>
-                <strong>{hoveredState.approved_intake.toLocaleString('en-IN')}</strong>
+              <div style={{ display: 'flex', justifyContent: 'space-between', margin: '3px 0' }}>
+                <span style={{ color: '#94A3B8' }}>Enrolled APAAR:</span>
+                <span style={{ fontWeight: 600 }}>{hoveredState.enrolled.toLocaleString()}</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
-                <span>Admitted Regular:</span>
-                <strong>{hoveredState.enrolled.toLocaleString('en-IN')}</strong>
+              <div style={{ display: 'flex', justifyContent: 'space-between', margin: '3px 0' }}>
+                <span style={{ color: '#94A3B8' }}>Intake Utilization:</span>
+                <span style={{ fontWeight: 700, color: hoveredState.enrolled > hoveredState.approved_intake ? '#F87171' : '#34D399' }}>
+                  {Math.round((hoveredState.enrolled / Math.max(hoveredState.approved_intake, 1)) * 100)}%
+                </span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
-                <span>Seat Utilization:</span>
-                <strong style={{ color: (hoveredState.enrolled / Math.max(hoveredState.approved_intake, 1)) > 1 ? '#ef4444' : '#38bdf8' }}>
-                  {((hoveredState.enrolled / Math.max(hoveredState.approved_intake, 1)) * 100).toFixed(1)}%
-                </strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', marginTop: '2px' }}>
-                <span>Active Anomalies:</span>
-                <span style={{ color: hoveredState.anomalies > 0 ? '#f87171' : '#4ade80', fontWeight: 600 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', margin: '3px 0' }}>
+                <span style={{ color: '#94A3B8' }}>Active Anomalies:</span>
+                <span style={{ fontWeight: 700, color: hoveredState.anomalies > 0 ? '#FBBF24' : '#38BDF8' }}>
                   {hoveredState.anomalies}
                 </span>
+              </div>
+              <div style={{ marginTop: '6px', fontSize: '0.7rem', color: '#CBD5E1', fontStyle: 'italic', textAlign: 'center' }}>
+                Click to filter state records
               </div>
             </div>
           )}
         </div>
 
-        {/* Legend & Regional Jurisdictions */}
-        <div style={{ fontSize: '0.82rem' }}>
-          <div style={{ fontWeight: 600, marginBottom: '8px' }}>Regional Surveillance Legend:</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px' }}>
+        {/* Legend & Forensic Regulatory Guidance */}
+        <div>
+          <h4 style={{ margin: '0 0 10px 0', fontSize: '0.88rem', fontWeight: 700, color: '#1E293B' }}>
+            Regional Surveillance Legend:
+          </h4>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.8rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{ width: '14px', height: '14px', background: '#ef4444', borderRadius: '3px' }} />
+              <span style={{ width: 14, height: 14, borderRadius: 3, background: '#EF4444', display: 'inline-block' }}></span>
               <span><strong>Over-Intake Breach</strong> (&gt;100% capacity / High alert)</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{ width: '14px', height: '14px', background: '#f59e0b', borderRadius: '3px' }} />
+              <span style={{ width: 14, height: 14, borderRadius: 3, background: '#F59E0B', display: 'inline-block' }}></span>
               <span><strong>Capacity Warning</strong> (95%–100% full capacity)</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{ width: '14px', height: '14px', background: '#3b82f6', borderRadius: '3px' }} />
+              <span style={{ width: 14, height: 14, borderRadius: 3, background: '#3B82F6', display: 'inline-block' }}></span>
               <span><strong>Healthy Regular Intake</strong> (75%–95% utilization)</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{ width: '14px', height: '14px', background: '#10b981', borderRadius: '3px' }} />
-              <span><strong>Sub-capacity / Clean Status</strong> (&lt;75% utilization)</span>
+              <span style={{ width: 14, height: 14, borderRadius: 3, background: '#10B981', display: 'inline-block' }}></span>
+              <span><strong>Sub-Capacity / Clean</strong> (&lt;75% utilization)</span>
             </div>
           </div>
 
-          <div style={{ background: 'var(--bg-subtle, rgba(0,0,0,0.02))', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-            <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: '4px' }}>
-              💡 Auditor Guidance (APH Ch. 7):
+          <div
+            style={{
+              marginTop: '18px',
+              padding: '12px 14px',
+              background: '#F8FAFC',
+              border: '1px solid #E2E8F0',
+              borderRadius: '8px',
+              fontSize: '0.78rem',
+              color: '#334155',
+              lineHeight: 1.45
+            }}
+          >
+            <div style={{ fontWeight: 600, color: '#0F172A', marginBottom: '4px' }}>
+              💡 Real-Time Regulatory Oversight:
             </div>
-            <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-              Click any state (e.g. <strong>Delhi</strong>, <strong>Rajasthan</strong>, or <strong>Maharashtra</strong>) to lock jurisdiction focus. States exhibiting red breaches trigger automatic show-cause certificates.
-            </p>
+            Click any state to isolate regional records. Over-intake breaches in Rajasthan (RTU Kota) and Madhya Pradesh (MITS Gwalior) are highlighted in red for forensic audit under APH Ch. 7.
           </div>
         </div>
       </div>
     </div>
   );
 };
-

@@ -202,7 +202,7 @@ export const StudentRegistry: React.FC<StudentRegistryProps> = ({
           }}
           className="btn"
           style={{ padding: '4px 8px', fontSize: 11, borderColor: 'var(--blue)', color: 'var(--blue)' }}
-          title="Inspect SAKSHAM Document Verification Evidence"
+          title="Inspect Document Verification Evidence"
         >
           🔍 Docs
         </button>
@@ -236,7 +236,7 @@ export const StudentRegistry: React.FC<StudentRegistryProps> = ({
           className="btn"
           style={{ borderColor: 'var(--blue)', color: 'var(--blue)', fontWeight: 600 }}
         >
-          🔍 SAKSHAM Doc Scrutiny
+          🔍 Document Scrutiny
         </button>
         {canAddRecord && (
           <button
@@ -405,7 +405,7 @@ export const StudentRegistry: React.FC<StudentRegistryProps> = ({
                 }}
                 className="btn pri"
               >
-                🔍 SAKSHAM Doc Scrutiny
+                🔍 Document Scrutiny
               </button>
               <button
                 type="button"

@@ -275,7 +275,7 @@ export const SakshamScrutinyStudio: React.FC<SakshamScrutinyStudioProps> = ({
               borderRadius: 4,
               letterSpacing: 0.5
             }}>
-              SAKSHAM ENGINE v2.4
+              FORENSIC SCRUTINY ENGINE v2.4
             </span>
             <h2 style={{ margin: 0, fontSize: 17, fontWeight: 600, color: '#fff' }}>
               Multi-Modal Document Scrutiny & Forensic Verification Studio
@@ -377,7 +377,7 @@ export const SakshamScrutinyStudio: React.FC<SakshamScrutinyStudioProps> = ({
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div>
                     <div style={{ fontSize: 10, fontWeight: 700, color: '#2563EB', textTransform: 'uppercase' }}>
-                      GOVERNMENT OF INDIA • AICTE SAKSHAM
+                      GOVERNMENT OF INDIA • AICTE FORENSIC HUB
                     </div>
                     <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginTop: 2 }}>
                       {activeCase.docType}

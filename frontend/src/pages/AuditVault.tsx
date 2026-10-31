@@ -130,13 +130,13 @@ export const AuditVault: React.FC<AuditVaultProps> = ({
           className="btn"
           style={{ borderColor: 'var(--blue)', color: 'var(--blue)', fontWeight: 600 }}
         >
-          🔍 SAKSHAM Forensic Scrutiny
+          🔍 Forensic Document Scrutiny
         </button>
       </Head>
 
-      {/* SAKSHAM Forensic Evidence Trail Card */}
+      {/* Forensic Evidence Trail Card */}
       <Card
-        title="SAKSHAM Multi-Modal Document Forensic Audit Trail"
+        title="Multi-Modal Document Forensic Audit Trail"
         style={{ marginBottom: 16, borderLeft: '4px solid var(--blue)' }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
